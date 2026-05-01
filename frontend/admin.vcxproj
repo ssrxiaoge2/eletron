@@ -101,10 +101,19 @@
     <QtMoc Include="src\MainWindow.h"/>
     <QtMoc Include="src\LoginWindow.h"/>
     <QtMoc Include="src\AuthClient.h"/>
+    <QtMoc Include="src\ChatListWidget.h"/>
+    <QtMoc Include="src\ChatWindow.h"/>
+    <QtMoc Include="src\MessageBubble.h"/>
+    <QtMoc Include="src\NavBar.h"/>
     <ClCompile Include="src\MainWindow.cpp"/>
     <ClCompile Include="src\LoginWindow.cpp"/>
     <ClCompile Include="src\AuthClient.cpp"/>
+    <ClCompile Include="src\ChatListWidget.cpp"/>
+    <ClCompile Include="src\ChatWindow.cpp"/>
+    <ClCompile Include="src\MessageBubble.cpp"/>
+    <ClCompile Include="src\NavBar.cpp"/>
     <ClCompile Include="src\main.cpp"/>
+    <None Include="styles\main.qss"/>
 
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

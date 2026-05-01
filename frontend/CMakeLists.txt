@@ -14,10 +14,19 @@ qt_add_executable(qq_desktop_frontend
   src/main.cpp
   src/AuthClient.cpp
   src/AuthClient.h
+  src/ChatListWidget.cpp
+  src/ChatListWidget.h
+  src/ChatWindow.cpp
+  src/ChatWindow.h
   src/MainWindow.cpp
   src/MainWindow.h
+  src/MessageBubble.cpp
+  src/MessageBubble.h
+  src/NavBar.cpp
+  src/NavBar.h
   src/LoginWindow.cpp
   src/LoginWindow.h
+  resources/MainWindow.qrc
 )
 
 target_link_libraries(qq_desktop_frontend

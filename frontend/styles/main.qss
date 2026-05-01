@@ -1,0 +1,261 @@
+QMainWindow {
+  background: #ffffff;
+}
+
+QWidget#topBar {
+  min-height: 58px;
+  max-height: 58px;
+  background: #ffffff;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+QLabel#topBrandLabel {
+  color: #111111;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+QToolButton#topAvatarButton {
+  min-width: 36px;
+  max-width: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  border-radius: 18px;
+  background: #1d6fa4;
+  color: #ffffff;
+  border: 0;
+  font-weight: 700;
+}
+
+QLabel#topNicknameLabel {
+  color: #111111;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+QLabel#topSignatureLabel {
+  color: #888888;
+  font-size: 12px;
+}
+
+QToolButton#windowButton,
+QToolButton#closeButton {
+  min-width: 34px;
+  min-height: 30px;
+  border: 0;
+  background: transparent;
+  color: #555555;
+}
+
+QToolButton#windowButton:hover {
+  background: #ededed;
+}
+
+QToolButton#closeButton:hover {
+  background: #e81123;
+  color: #ffffff;
+}
+
+QSplitter#mainSplitter::handle {
+  background: #eeeeee;
+  width: 1px;
+}
+
+QWidget#navBar {
+  background: #f5f5f5;
+  border-right: 1px solid #e2e2e2;
+}
+
+QToolButton#navButton {
+  border: 0;
+  border-radius: 8px;
+  color: #666666;
+  background: transparent;
+}
+
+QToolButton#navButton:hover {
+  background: #e8e8e8;
+}
+
+QToolButton#navButton:checked {
+  background: #d8ebf7;
+  color: #1d6fa4;
+}
+
+QWidget#chatListPane {
+  background: #ffffff;
+  border-right: 1px solid #e8e8e8;
+}
+
+QWidget#searchBar {
+  min-height: 50px;
+  max-height: 50px;
+  background: #ffffff;
+}
+
+QLineEdit#searchEdit {
+  min-height: 32px;
+  border: 0;
+  border-radius: 6px;
+  padding-left: 12px;
+  background: #f1f1f1;
+  color: #111111;
+  font-size: 14px;
+}
+
+QToolButton#newChatButton {
+  border: 0;
+  border-radius: 6px;
+  background: #f1f1f1;
+  color: #333333;
+  font-size: 20px;
+}
+
+QListWidget#sessionList {
+  background: #ffffff;
+  outline: 0;
+}
+
+QListWidget#sessionList::item {
+  min-height: 70px;
+  border: 0;
+}
+
+QListWidget#sessionList::item:hover {
+  background: #252525;
+}
+
+QListWidget#sessionList::item:selected {
+  background: #2a2a2a;
+}
+
+QLabel#sessionAvatar,
+QLabel#messageAvatar {
+  border-radius: 18px;
+  background: #1d6fa4;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+QLabel#sessionAvatar {
+  border-radius: 21px;
+}
+
+QLabel#sessionName {
+  color: #111111;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+QLabel#sessionTime,
+QLabel#sessionPreview {
+  color: #888888;
+  font-size: 12px;
+}
+
+QLabel#unreadBadge {
+  min-width: 18px;
+  max-height: 18px;
+  border-radius: 9px;
+  background: #e33b3b;
+  color: #ffffff;
+  font-size: 11px;
+}
+
+QWidget#chatWindow {
+  background: #ffffff;
+}
+
+QWidget#chatTitleBar {
+  min-height: 60px;
+  max-height: 60px;
+  background: #ffffff;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+QLabel#chatTitleName {
+  color: #111111;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+QLabel#onlineDot {
+  border-radius: 4px;
+  background: #26c35a;
+}
+
+QToolButton#chatToolButton {
+  min-width: 32px;
+  max-width: 32px;
+  min-height: 32px;
+  max-height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #777777;
+}
+
+QToolButton#chatToolButton:hover {
+  background: #eeeeee;
+}
+
+QScrollArea#messageScrollArea,
+QWidget#messageContainer {
+  background: #ffffff;
+}
+
+QLabel#messageTimestamp {
+  color: #999999;
+  font-size: 12px;
+  padding: 8px;
+}
+
+QLabel#receivedBubble,
+QLabel#sentBubble {
+  background: #1d6fa4;
+  color: #000000;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+QWidget#inputArea {
+  min-height: 150px;
+  max-height: 150px;
+  background: #ffffff;
+  border-top: 1px solid #e8e8e8;
+}
+
+QWidget#inputToolBar {
+  min-height: 40px;
+  max-height: 40px;
+  background: #ffffff;
+}
+
+QTextEdit#messageInput {
+  border: 0;
+  background: transparent;
+  color: #000000;
+  font-size: 14px;
+  padding: 0 14px;
+}
+
+QPushButton#sendButton {
+  min-width: 74px;
+  min-height: 30px;
+  border: 0;
+  border-radius: 5px;
+  background: #1d6fa4;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+QToolButton#sendMoreButton {
+  min-width: 30px;
+  min-height: 30px;
+  border: 0;
+  border-radius: 5px;
+  background: #1d6fa4;
+  color: #ffffff;
+}

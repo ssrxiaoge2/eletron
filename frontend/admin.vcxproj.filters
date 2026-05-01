@@ -38,6 +38,18 @@
     <QtMoc Include="src\AuthClient.h">
       <Filter>Header Files</Filter>
     </QtMoc>
+    <QtMoc Include="src\ChatListWidget.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="src\ChatWindow.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="src\MessageBubble.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="src\NavBar.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
     <ClCompile Include="src\MainWindow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -45,6 +57,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\AuthClient.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ChatListWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ChatWindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MessageBubble.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\NavBar.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp">
@@ -56,6 +80,9 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="$pro_name$.def">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="styles\main.qss">
       <Filter>Resource Files</Filter>
     </None>
 
