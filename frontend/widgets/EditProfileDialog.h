@@ -13,15 +13,18 @@ class EditProfileDialog : public QDialog {
   EditProfileDialog(const QString &nickname, const QString &signature,
                     const QString &avatar, const QString &gender,
                     const QString &birthday, const QString &email,
-                    QWidget *parent = nullptr);
+                    const QString &region, QWidget *parent = nullptr);
 
  signals:
   void profileUpdated(const QString &nickname, const QString &signature,
-                      const QString &gender, const QString &birthday,
-                      const QString &email);
+                      const QString &avatar, const QString &gender,
+                      const QString &birthday, const QString &email,
+                      const QString &region);
 
  private:
+  void ChooseAvatar();
   void SaveProfile();
+  void UpdateAvatarPreview();
 
   QString avatar_;
   QLabel *avatar_label_;
@@ -30,4 +33,5 @@ class EditProfileDialog : public QDialog {
   QLineEdit *gender_edit_;
   QDateEdit *birthday_edit_;
   QLineEdit *email_edit_;
+  QLineEdit *region_edit_;
 };

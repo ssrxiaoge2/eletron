@@ -76,6 +76,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
           &MainWindow::RefreshFriendRequests);
 
   LoadProfile();
+  nav_bar_->setCurrentIndex(0);
+  middle_stack_->setCurrentIndex(0);
   chat_list_widget_->loadConversations();
   friend_list_widget_->loadRequests();
   request_timer_->start(30000);
@@ -102,7 +104,8 @@ void MainWindow::LoadProfile() {
                                    data.value("birthday").toString(),
                                    data.value("createdAt").toString(
                                        data.value("created_at").toString()),
-                                   data.value("email").toString());
+                                   data.value("email").toString(),
+                                   data.value("region").toString());
                              });
 }
 
@@ -122,6 +125,12 @@ void MainWindow::OpenConversation(int target_user_id,
     return;
   }
 
+  SwitchMiddlePanel(0);
+  nav_bar_->setCurrentIndex(0);
+  if (chat_list_widget_->activateConversation(target_user_id)) {
+    return;
+  }
+
   QJsonObject body;
   body.insert("targetUserId", target_user_id);
   ApiClient::instance()->post(
@@ -133,8 +142,6 @@ void MainWindow::OpenConversation(int target_user_id,
         const QString name =
             data.value("targetNickname").toString(display_name);
         const bool online = data.value("isOnline").toBool(is_online);
-        SwitchMiddlePanel(0);
-        nav_bar_->setCurrentIndex(0);
         chat_list_widget_->loadConversations();
         chat_window_->loadMessages(user_id, name, online);
       },

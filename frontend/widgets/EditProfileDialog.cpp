@@ -3,10 +3,12 @@
 #include "../src/ApiClient.h"
 
 #include <QtCore/QDate>
+#include <QtCore/QFile>
 #include <QtCore/QJsonObject>
 #include <QtGui/QPixmap>
 #include <QtWidgets/QDateEdit>
 #include <QtWidgets/QDialogButtonBox>
+#include <QtWidgets/QFileDialog>
 #include <QtWidgets/QFormLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
@@ -27,7 +29,8 @@ EditProfileDialog::EditProfileDialog(const QString &nickname,
                                      const QString &avatar,
                                      const QString &gender,
                                      const QString &birthday,
-                                     const QString &email, QWidget *parent)
+                                     const QString &email,
+                                     const QString &region, QWidget *parent)
     : QDialog(parent), avatar_(avatar) {
   setObjectName("darkDialog");
   setWindowTitle(QStringLiteral("\u7f16\u8f91\u8d44\u6599"));
@@ -46,23 +49,14 @@ EditProfileDialog::EditProfileDialog(const QString &nickname,
   gender_edit_ = new QLineEdit(gender, this);
   birthday_edit_ = new QDateEdit(this);
   email_edit_ = new QLineEdit(email, this);
+  region_edit_ = new QLineEdit(region, this);
 
   avatar_label_->setObjectName("profileAvatarLarge");
   avatar_label_->setFixedSize(80, 80);
   avatar_label_->setAlignment(Qt::AlignCenter);
-  QPixmap avatar_pixmap;
-  if (!avatar.isEmpty() &&
-      !avatar_pixmap.loadFromData(QByteArray::fromBase64(avatar.toUtf8()))) {
-    avatar_pixmap.load(avatar);
-  }
-  if (avatar_pixmap.isNull()) {
-    avatar_label_->setText(nickname.isEmpty() ? QStringLiteral("\u9e3d")
-                                              : nickname.left(1).toUpper());
-  } else {
-    avatar_label_->setPixmap(avatar_pixmap.scaled(
-        avatar_label_->size(), Qt::KeepAspectRatioByExpanding,
-        Qt::SmoothTransformation));
-  }
+  UpdateAvatarPreview();
+  auto *choose_avatar_button =
+      new QPushButton(QStringLiteral("\u66f4\u6362\u5934\u50cf"), this);
 
   birthday_edit_->setCalendarPopup(true);
   birthday_edit_->setDisplayFormat("yyyy-MM-dd");
@@ -76,17 +70,39 @@ EditProfileDialog::EditProfileDialog(const QString &nickname,
   form_layout->addRow(QStringLiteral("\u6027\u522b"), gender_edit_);
   form_layout->addRow(QStringLiteral("\u751f\u65e5"), birthday_edit_);
   form_layout->addRow(QStringLiteral("\u90ae\u7bb1"), email_edit_);
+  form_layout->addRow(QStringLiteral("\u5730\u533a"), region_edit_);
 
   root_layout->setContentsMargins(20, 18, 20, 18);
   root_layout->setSpacing(14);
   root_layout->addWidget(avatar_label_, 0, Qt::AlignHCenter);
+  root_layout->addWidget(choose_avatar_button, 0, Qt::AlignHCenter);
   root_layout->addLayout(form_layout);
   root_layout->addWidget(buttons);
 
+  connect(choose_avatar_button, &QPushButton::clicked, this,
+          &EditProfileDialog::ChooseAvatar);
   connect(buttons->button(QDialogButtonBox::Save), &QPushButton::clicked, this,
           &EditProfileDialog::SaveProfile);
   connect(buttons->button(QDialogButtonBox::Cancel), &QPushButton::clicked,
           this, &QDialog::reject);
+}
+
+void EditProfileDialog::ChooseAvatar() {
+  const QString file_path = QFileDialog::getOpenFileName(
+      this, QStringLiteral("\u9009\u62e9\u5934\u50cf"), QString(),
+      QStringLiteral("Images (*.png *.jpg *.jpeg *.bmp)"));
+  if (file_path.isEmpty()) {
+    return;
+  }
+
+  QFile file(file_path);
+  if (!file.open(QIODevice::ReadOnly)) {
+    QMessageBox::warning(this, QString(), TextSaveFailed());
+    return;
+  }
+  const QByteArray image_bytes = file.readAll();
+  avatar_ = QString::fromLatin1(image_bytes.toBase64());
+  UpdateAvatarPreview();
 }
 
 void EditProfileDialog::SaveProfile() {
@@ -97,6 +113,7 @@ void EditProfileDialog::SaveProfile() {
   body.insert("gender", gender_edit_->text().trimmed());
   body.insert("birthday", birthday_edit_->date().toString("yyyy-MM-dd"));
   body.insert("email", email_edit_->text().trimmed());
+  body.insert("region", region_edit_->text().trimmed());
 
   ApiClient::instance()->put(
       "/api/v1/user/profile", body, this,
@@ -113,8 +130,32 @@ void EditProfileDialog::SaveProfile() {
                 birthday_edit_->date().toString("yyyy-MM-dd"));
         const QString email =
             data.value("email").toString(email_edit_->text().trimmed());
-        emit profileUpdated(nickname, signature, gender, birthday, email);
+        const QString avatar = data.value("avatar").toString(avatar_);
+        const QString region =
+            data.value("region").toString(region_edit_->text().trimmed());
+        emit profileUpdated(nickname, signature, avatar, gender, birthday, email,
+                            region);
         accept();
       },
       [this]() { QMessageBox::warning(this, QString(), TextSaveFailed()); });
+}
+
+void EditProfileDialog::UpdateAvatarPreview() {
+  QPixmap avatar_pixmap;
+  if (!avatar_.isEmpty() &&
+      !avatar_pixmap.loadFromData(QByteArray::fromBase64(avatar_.toUtf8()))) {
+    avatar_pixmap.load(avatar_);
+  }
+  if (avatar_pixmap.isNull()) {
+    avatar_label_->setPixmap(QPixmap());
+    avatar_label_->setText(nickname_edit_ == nullptr ||
+                                   nickname_edit_->text().trimmed().isEmpty()
+                               ? QStringLiteral("\u9e3d")
+                               : nickname_edit_->text().trimmed().left(1).toUpper());
+    return;
+  }
+  avatar_label_->setText(QString());
+  avatar_label_->setPixmap(avatar_pixmap.scaled(
+      avatar_label_->size(), Qt::KeepAspectRatioByExpanding,
+      Qt::SmoothTransformation));
 }
