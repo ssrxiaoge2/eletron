@@ -8,12 +8,14 @@
 
 namespace {
 
-constexpr char kLoginUrl[] = "http://127.0.0.1:8000/auth/login";
-constexpr char kRegisterUrl[] = "http://127.0.0.1:8000/auth/register";
-constexpr char kQuickLoginUrl[] = "http://127.0.0.1:8000/auth/quick-login";
+constexpr char kLoginUrl[] = "http://127.0.0.1:8000/api/v1/auth/login";
+constexpr char kRegisterUrl[] = "http://127.0.0.1:8000/api/v1/auth/register";
+constexpr char kQuickLoginUrl[] =
+    "http://127.0.0.1:8000/api/v1/auth/quick-login";
 
-bool IsDatabaseErrorCode(const QString &code) {
-  return code == "database_unavailable" || code == "database_error";
+bool IsDatabaseError(int code, const QString &message) {
+  return code == 2001 || code == 2002 || message == "database_unavailable" ||
+         message == "database_error";
 }
 
 QString DatabaseErrorMessage() {
@@ -42,8 +44,16 @@ QString RegisterFailedMessage() {
 
 AuthClient::AuthClient(QObject *parent) : QObject(parent) {}
 
-QString ExtractSessionToken(const QJsonObject &object) {
-  return object.value("session").toObject().value("token").toString();
+int ResponseCode(const QJsonObject &object) {
+  return object.value("code").toInt(-1);
+}
+
+QString ResponseMessage(const QJsonObject &object) {
+  return object.value("message").toString();
+}
+
+QJsonObject ResponseData(const QJsonObject &object) {
+  return object.value("data").toObject();
 }
 
 void AuthClient::Login(const QString &username, const QString &password) {
@@ -99,30 +109,29 @@ void AuthClient::HandleLoginReply(QNetworkReply *reply) {
   const QByteArray response_body = reply->readAll();
   const QJsonDocument document = QJsonDocument::fromJson(response_body);
   const QJsonObject object = document.object();
-  const QString code = object.value("code").toString();
-  const bool success = object.value("success").toBool(false);
+  const int code = ResponseCode(object);
+  const QString message = ResponseMessage(object);
+  const QJsonObject data = ResponseData(object);
 
   if (reply->error() != QNetworkReply::NoError && status_code == 0) {
     emit loginFailed(DatabaseErrorMessage());
     return;
   }
 
-  if (status_code == 503 || IsDatabaseErrorCode(code)) {
+  if (status_code == 503 || IsDatabaseError(code, message)) {
     emit loginFailed(DatabaseErrorMessage());
     return;
   }
 
   if (status_code == 401 || status_code == 403 || status_code == 400 ||
-      (!success && status_code >= 200 && status_code < 300)) {
+      code != 0) {
     emit loginFailed(CredentialErrorMessage());
     return;
   }
 
-  if (status_code >= 200 && status_code < 300 && success) {
-    const QJsonObject user = object.value("user").toObject();
-    emit loginSucceeded(user.value("account").toString(),
-                        user.value("nickname").toString(),
-                        ExtractSessionToken(object));
+  if (status_code >= 200 && status_code < 300 && code == 0) {
+    emit loginSucceeded(data.value("username").toString(), QString(),
+                        data.value("token").toString());
     return;
   }
 
@@ -137,30 +146,28 @@ void AuthClient::HandleQuickLoginReply(QNetworkReply *reply) {
   const QByteArray response_body = reply->readAll();
   const QJsonDocument document = QJsonDocument::fromJson(response_body);
   const QJsonObject object = document.object();
-  const QString code = object.value("code").toString();
-  const bool success = object.value("success").toBool(false);
+  const int code = ResponseCode(object);
+  const QString message = ResponseMessage(object);
+  const QJsonObject data = ResponseData(object);
 
   if (reply->error() != QNetworkReply::NoError && status_code == 0) {
     emit loginFailed(DatabaseErrorMessage());
     return;
   }
 
-  if (status_code == 503 || IsDatabaseErrorCode(code)) {
+  if (status_code == 503 || IsDatabaseError(code, message)) {
     emit loginFailed(DatabaseErrorMessage());
     return;
   }
 
-  if (status_code == 401 || code == "invalid_session" ||
-      (!success && status_code >= 200 && status_code < 300)) {
+  if (status_code == 401 || code != 0) {
     emit loginFailed(SessionErrorMessage());
     return;
   }
 
-  if (status_code >= 200 && status_code < 300 && success) {
-    const QJsonObject user = object.value("user").toObject();
-    emit loginSucceeded(user.value("account").toString(),
-                        user.value("nickname").toString(),
-                        ExtractSessionToken(object));
+  if (status_code >= 200 && status_code < 300 && code == 0) {
+    emit loginSucceeded(data.value("username").toString(), QString(),
+                        data.value("token").toString());
     return;
   }
 
@@ -175,35 +182,33 @@ void AuthClient::HandleRegisterReply(QNetworkReply *reply) {
   const QByteArray response_body = reply->readAll();
   const QJsonDocument document = QJsonDocument::fromJson(response_body);
   const QJsonObject object = document.object();
-  const QString code = object.value("code").toString();
-  const bool success = object.value("success").toBool(false);
+  const int code = ResponseCode(object);
+  const QString message = ResponseMessage(object);
+  const QJsonObject data = ResponseData(object);
 
   if (reply->error() != QNetworkReply::NoError && status_code == 0) {
     emit registerFailed(DatabaseErrorMessage());
     return;
   }
 
-  if (status_code == 503 || IsDatabaseErrorCode(code)) {
+  if (status_code == 503 || IsDatabaseError(code, message)) {
     emit registerFailed(DatabaseErrorMessage());
     return;
   }
 
-  if (status_code == 409 || code == "account_exists") {
+  if (status_code == 409 || code == 1004) {
     emit registerFailed(AccountExistsMessage());
     return;
   }
 
-  if (status_code == 400 || (!success && status_code >= 200 &&
-                             status_code < 300)) {
+  if (status_code == 400 || code != 0) {
     emit registerFailed(RegisterFailedMessage());
     return;
   }
 
-  if (status_code >= 200 && status_code < 300 && success) {
-    const QJsonObject user = object.value("user").toObject();
-    emit registerSucceeded(user.value("account").toString(),
-                           user.value("nickname").toString(),
-                           ExtractSessionToken(object));
+  if (status_code >= 200 && status_code < 300 && code == 0) {
+    emit registerSucceeded(data.value("username").toString(), QString(),
+                           data.value("token").toString());
     return;
   }
 
