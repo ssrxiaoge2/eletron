@@ -2,6 +2,8 @@
 
 ## 2026-05-01
 
+- 新增 `conversations` 表，使用 `(user_id, target_user_id)` 唯一约束保证 `POST /api/v1/conversations` 不产生重复会话。
+- 新增 `POST /api/v1/user/avatar`，支持 base64 头像上传，保存文件后返回头像 URL 并更新 `users.avatar`。
 - 修复 `GET /api/v1/user/profile` 响应缺少 `email` 字段的问题，并在资料更新接口中保留 `email` 兼容。
 - 调整 `users` 表为前端资料显示字段：登录用户名、密码哈希、昵称、在线状态、头像、注册时间、软删除、性别、生日、个性签名；资料接口支持修改性别、生日和 `email` 兼容字段。
 - 新增好友系统和用户资料接口：用户搜索、好友申请、申请列表、同意/拒绝、好友列表、资料读取/修改、点击好友创建会话。

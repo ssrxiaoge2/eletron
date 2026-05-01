@@ -121,7 +121,7 @@ FriendResult FriendService::startConversation(const QString& bearerToken, qint64
     }
 
     QJsonObject conversation;
-    if (!Models::FriendshipModel::fetchConversationTarget(userId, targetUserId, &conversation)) {
+    if (!Models::FriendshipModel::ensureConversation(userId, targetUserId, &conversation)) {
         return error(503, 2001, QStringLiteral("database_error"));
     }
 

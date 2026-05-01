@@ -274,12 +274,24 @@ bool FriendshipModel::fetchFriends(qint64 currentUserId, QJsonArray* friends)
     return true;
 }
 
-bool FriendshipModel::fetchConversationTarget(qint64 currentUserId, qint64 targetUserId, QJsonObject* conversation)
+bool FriendshipModel::ensureConversation(qint64 currentUserId, qint64 targetUserId, QJsonObject* conversation)
 {
     auto db = Core::Database::getConnection();
     if (!db.isValid() || !db.isOpen() || currentUserId == targetUserId) {
         return false;
     }
+
+    QSqlQuery insertQuery(db);
+    insertQuery.prepare(QStringLiteral(
+        "INSERT INTO conversations (user_id, target_user_id) "
+        "VALUES (:current_user_id, :target_user_id) "
+        "ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), is_deleted = 0, updated_at = CURRENT_TIMESTAMP"));
+    insertQuery.bindValue(QStringLiteral(":current_user_id"), currentUserId);
+    insertQuery.bindValue(QStringLiteral(":target_user_id"), targetUserId);
+    if (!insertQuery.exec()) {
+        return false;
+    }
+    const auto conversationId = insertQuery.lastInsertId().toLongLong();
 
     QSqlQuery query(db);
     query.prepare(QStringLiteral(
@@ -291,7 +303,7 @@ bool FriendshipModel::fetchConversationTarget(qint64 currentUserId, qint64 targe
     }
 
     *conversation = QJsonObject {
-        { QStringLiteral("conversationId"), targetUserId },
+        { QStringLiteral("conversationId"), conversationId },
         { QStringLiteral("targetUserId"), targetUserId },
         { QStringLiteral("targetNickname"), query.value(QStringLiteral("nickname")).toString() },
         { QStringLiteral("targetAvatar"), query.value(QStringLiteral("avatar")).toString() },

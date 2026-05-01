@@ -58,6 +58,21 @@
 
 索引：`idx_messages_sender_id`、`idx_messages_receiver_id`、`idx_messages_created_at`。
 
+## conversations
+
+会话表。用于记录用户点击好友后创建的会话入口，避免数据库层产生重复会话。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | BIGINT UNSIGNED | 会话主键，自增 |
+| user_id | BIGINT UNSIGNED | 当前用户 ID，外键到 `users.id` |
+| target_user_id | BIGINT UNSIGNED | 会话目标用户 ID，外键到 `users.id` |
+| created_at | DATETIME | 创建时间 |
+| updated_at | DATETIME | 更新时间 |
+| is_deleted | TINYINT(1) | 软删除标记 |
+
+索引：`uk_conversations_user_target`、`idx_conversations_user_id`、`idx_conversations_target_user_id`。
+
 ## sessions
 
 会话表。服务端只保存 JWT 的 SHA-256 哈希，不保存明文 token。

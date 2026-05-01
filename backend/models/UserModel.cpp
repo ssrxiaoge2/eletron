@@ -127,4 +127,19 @@ bool UserRepository::updateProfile(qint64 userId, const QJsonObject& fields, QJs
     return true;
 }
 
+bool UserRepository::updateAvatar(qint64 userId, const QString& avatarUrl)
+{
+    auto db = Core::Database::getConnection();
+    if (!db.isValid() || !db.isOpen()) {
+        return false;
+    }
+
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+        "UPDATE users SET avatar = :avatar WHERE id = :user_id AND is_deleted = 0"));
+    query.bindValue(QStringLiteral(":avatar"), avatarUrl);
+    query.bindValue(QStringLiteral(":user_id"), userId);
+    return query.exec();
+}
+
 } // namespace Backend::Models

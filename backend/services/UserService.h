@@ -17,6 +17,7 @@ class UserService final {
 public:
     UserResult profile(const QString& bearerToken) const;
     UserResult updateProfile(const QString& bearerToken, const QJsonObject& body) const;
+    UserResult uploadAvatar(const QString& bearerToken, const QJsonObject& body) const;
 
 private:
     static UserResult error(int httpStatus, int code, const QString& message);

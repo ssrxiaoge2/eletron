@@ -22,6 +22,7 @@ class UserRepository final {
 public:
     static bool fetchProfile(qint64 userId, QJsonObject* profile);
     static bool updateProfile(qint64 userId, const QJsonObject& fields, QJsonObject* updatedProfile);
+    static bool updateAvatar(qint64 userId, const QString& avatarUrl);
 };
 
 } // namespace Backend::Models

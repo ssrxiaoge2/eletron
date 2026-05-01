@@ -13,7 +13,7 @@ public:
     static bool fetchRequests(qint64 currentUserId, QJsonArray* requests);
     static bool handleRequest(qint64 currentUserId, qint64 requestId, int action);
     static bool fetchFriends(qint64 currentUserId, QJsonArray* friends);
-    static bool fetchConversationTarget(qint64 currentUserId, qint64 targetUserId, QJsonObject* conversation);
+    static bool ensureConversation(qint64 currentUserId, qint64 targetUserId, QJsonObject* conversation);
 };
 
 } // namespace Backend::Models

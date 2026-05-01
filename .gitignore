@@ -17,6 +17,7 @@ venv/
 # Local backend configuration
 backend/config/database.ini
 backend/config/config.ini
+backend/uploads/
 
 # Visual Studio user state
 *.user

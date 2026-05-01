@@ -7,6 +7,7 @@ USE im_app;
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS messages;
+DROP TABLE IF EXISTS conversations;
 DROP TABLE IF EXISTS friendships;
 DROP TABLE IF EXISTS users;
 SET FOREIGN_KEY_CHECKS = 1;
@@ -59,6 +60,20 @@ CREATE TABLE messages (
   CONSTRAINT fk_messages_receiver_id FOREIGN KEY (receiver_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE conversations (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  target_user_id BIGINT UNSIGNED NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  is_deleted TINYINT(1) DEFAULT 0,
+  UNIQUE KEY uk_conversations_user_target (user_id, target_user_id),
+  KEY idx_conversations_user_id (user_id),
+  KEY idx_conversations_target_user_id (target_user_id),
+  CONSTRAINT fk_conversations_user_id FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_conversations_target_user_id FOREIGN KEY (target_user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE sessions (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT UNSIGNED NOT NULL,
@@ -90,3 +105,8 @@ VALUES
   (@user2_id, @user1_id, '现在后端开始返回真实聊天记录。', 0, 0, '2024-01-01 15:29:00'),
   (@user1_id, @user2_id, '收到，我这边会按接口替换 Mock 数据。', 0, 1, '2024-01-01 15:30:00'),
   (@user2_id, @user1_id, '今天晚上一起聊', 0, 0, '2024-01-01 15:31:00');
+
+INSERT INTO conversations (user_id, target_user_id)
+VALUES
+  (@user1_id, @user2_id),
+  (@user2_id, @user1_id);

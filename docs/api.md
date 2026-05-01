@@ -20,6 +20,7 @@
 | POST | `/api/v1/friends/handle` | 处理好友申请 |
 | GET | `/api/v1/user/profile` | 获取当前用户资料 |
 | PUT | `/api/v1/user/profile` | 修改当前用户资料 |
+| POST | `/api/v1/user/avatar` | 上传当前用户头像 |
 
 ## Response Envelope
 
@@ -490,6 +491,35 @@ Authorization: Bearer {token}
 }
 ```
 
+## POST `/api/v1/user/avatar`
+
+Header:
+
+```http
+Authorization: Bearer {token}
+```
+
+请求体支持前端传入 base64 图片，字段名可用 `avatar` 或 `imageBase64`：
+
+```json
+{
+  "avatar": "data:image/png;base64,iVBORw0KGgo..."
+}
+```
+
+成功响应：HTTP `200`。后端会保存头像文件、更新 `users.avatar`，并返回可用于展示的 URL。
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "avatar": "/uploads/avatars/user_3_xxx.png",
+    "avatarUrl": "/uploads/avatars/user_3_xxx.png"
+  }
+}
+```
+
 ## POST `/api/v1/conversations`
 
 Header:
@@ -513,7 +543,7 @@ Authorization: Bearer {token}
   "code": 0,
   "message": "ok",
   "data": {
-    "conversationId": 1002,
+    "conversationId": 1,
     "targetUserId": 1002,
     "targetNickname": "东方-Askeai",
     "targetAvatar": "",
@@ -521,3 +551,5 @@ Authorization: Bearer {token}
   }
 }
 ```
+
+后端使用 `conversations` 表维护会话记录，并通过 `(user_id, target_user_id)` 唯一约束避免重复会话。重复调用会返回同一条会话记录。
