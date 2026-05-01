@@ -13,16 +13,18 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE TABLE users (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  username VARCHAR(32) NOT NULL UNIQUE,
-  nickname VARCHAR(32) DEFAULT '',
+  username VARCHAR(32) NOT NULL UNIQUE COMMENT 'login username',
   password_hash VARCHAR(256) NOT NULL,
-  avatar VARCHAR(512) DEFAULT '',
-  signature VARCHAR(128) DEFAULT '',
-  email VARCHAR(64) DEFAULT '',
+  nickname VARCHAR(32) DEFAULT '' COMMENT 'display nickname',
   status TINYINT DEFAULT 0 COMMENT '0 offline 1 online 2 invisible',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  avatar VARCHAR(512) DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'register time',
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  is_deleted TINYINT(1) DEFAULT 0
+  is_deleted TINYINT(1) DEFAULT 0,
+  gender VARCHAR(16) DEFAULT '',
+  birthday DATE NULL,
+  signature VARCHAR(128) DEFAULT '',
+  email VARCHAR(64) DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE friendships (
@@ -70,13 +72,13 @@ CREATE TABLE sessions (
   CONSTRAINT fk_sessions_user_id FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO users (username, nickname, password_hash, avatar, signature, email, status)
-VALUES ('testuser', '测试用户', SHA2('123456', 256), '/avatars/default.png', '用于前端登录验证的初始化用户', '', 0);
+INSERT INTO users (username, password_hash, nickname, status, avatar, gender, birthday, signature, email)
+VALUES ('testuser', SHA2('123456', 256), '测试用户', 0, '/avatars/default.png', '', '2000-01-01', '用于前端登录验证的初始化用户', '');
 
-INSERT INTO users (username, nickname, password_hash, avatar, signature, email, status)
+INSERT INTO users (username, password_hash, nickname, status, avatar, gender, birthday, signature, email)
 VALUES
-  ('user1', '测试用户1', SHA2('123456', 256), '', '今天也要好好聊天', 'user1@example.com', 1),
-  ('user2', '东方-Askeai', SHA2('123456', 256), '', '今天也要好好聊天', 'user2@example.com', 0);
+  ('user1', SHA2('123456', 256), '测试用户1', 1, '', 'unknown', '2000-01-01', '今天也要好好聊天', 'user1@example.com'),
+  ('user2', SHA2('123456', 256), '东方-Askeai', 0, '', 'unknown', '2000-01-02', '今天也要好好聊天', 'user2@example.com');
 
 SET @user1_id = (SELECT id FROM users WHERE username = 'user1' LIMIT 1);
 SET @user2_id = (SELECT id FROM users WHERE username = 'user2' LIMIT 1);

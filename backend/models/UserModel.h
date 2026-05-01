@@ -13,6 +13,8 @@ struct UserModel {
     QString avatar;
     QString signature;
     QString email;
+    QString gender;
+    QString birthday;
     int status = 0;
 };
 

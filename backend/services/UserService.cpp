@@ -65,10 +65,13 @@ bool UserService::authenticate(const QString& bearerToken, qint64* userId)
 
 bool UserService::validateBody(const QJsonObject& body)
 {
+    const auto gender = body.value(QStringLiteral("gender")).toString();
     return body.value(QStringLiteral("nickname")).toString().size() <= 32
         && body.value(QStringLiteral("signature")).toString().size() <= 128
         && body.value(QStringLiteral("avatar")).toString().size() <= 512
-        && body.value(QStringLiteral("email")).toString().size() <= 64;
+        && body.value(QStringLiteral("birthday")).toString().size() <= 10
+        && body.value(QStringLiteral("email")).toString().size() <= 64
+        && gender.size() <= 16;
 }
 
 } // namespace Backend::Services

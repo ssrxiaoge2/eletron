@@ -442,6 +442,9 @@ Authorization: Bearer {token}
     "username": "user1",
     "nickname": "测试用户",
     "avatar": "",
+    "status": 1,
+    "gender": "unknown",
+    "birthday": "2000-01-01",
     "signature": "今天也要好好聊天",
     "email": "",
     "createdAt": "2024-01-01"
@@ -464,6 +467,8 @@ Authorization: Bearer {token}
   "nickname": "新昵称",
   "signature": "新个性签名",
   "avatar": "",
+  "gender": "unknown",
+  "birthday": "2000-01-01",
   "email": ""
 }
 ```
@@ -478,6 +483,8 @@ Authorization: Bearer {token}
     "nickname": "新昵称",
     "signature": "新个性签名",
     "avatar": "",
+    "gender": "unknown",
+    "birthday": "2000-01-01",
     "email": ""
   }
 }

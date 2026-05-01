@@ -2,8 +2,10 @@
 
 ## 2026-05-01
 
+- 修复 `GET /api/v1/user/profile` 响应缺少 `email` 字段的问题，并在资料更新接口中保留 `email` 兼容。
+- 调整 `users` 表为前端资料显示字段：登录用户名、密码哈希、昵称、在线状态、头像、注册时间、软删除、性别、生日、个性签名；资料接口支持修改性别、生日和 `email` 兼容字段。
 - 新增好友系统和用户资料接口：用户搜索、好友申请、申请列表、同意/拒绝、好友列表、资料读取/修改、点击好友创建会话。
-- 扩展 `users` 表字段：`nickname`、`signature`、`email`。
+- 扩展 `users` 表字段：`nickname`、`signature`、`gender`、`birthday`。
 - 新增聊天记录接口：`GET /api/v1/conversations`、`GET /api/v1/messages`、`POST /api/v1/messages`。
 - 新增 `MessageRouter`、`MessageService`、`MessageModel`，支持 Bearer token 鉴权、会话列表、分页历史消息和 REST 发送消息。
 - 完成数据库初始化脚本，包含 `users`、`friendships`、`messages`、`sessions` 四张表，统一 InnoDB、utf8mb4、软删除和外键索引。

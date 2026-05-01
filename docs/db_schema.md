@@ -12,15 +12,17 @@
 | --- | --- | --- |
 | id | BIGINT UNSIGNED | 用户主键，自增 |
 | username | VARCHAR(32) | 登录账号，唯一 |
-| nickname | VARCHAR(32) | 用户昵称 |
 | password_hash | VARCHAR(256) | SHA-256 密码哈希 |
-| avatar | VARCHAR(512) | 头像地址，默认空字符串 |
-| signature | VARCHAR(128) | 个性签名 |
-| email | VARCHAR(64) | 邮箱地址 |
+| nickname | VARCHAR(32) | 显示昵称 |
 | status | TINYINT | 在线状态：0 离线，1 在线，2 隐身 |
-| created_at | DATETIME | 创建时间 |
+| avatar | VARCHAR(512) | 头像地址，默认空字符串 |
+| created_at | DATETIME | 注册时间 |
 | updated_at | DATETIME | 更新时间 |
 | is_deleted | TINYINT(1) | 软删除标记 |
+| gender | VARCHAR(16) | 性别 |
+| birthday | DATE | 生日 |
+| signature | VARCHAR(128) | 个性签名 |
+| email | VARCHAR(64) | 邮箱地址，兼容前端和测试展示字段 |
 
 ## friendships
 
