@@ -104,8 +104,7 @@ void MainWindow::LoadProfile() {
                                    data.value("birthday").toString(),
                                    data.value("createdAt").toString(
                                        data.value("created_at").toString()),
-                                   data.value("email").toString(),
-                                   data.value("region").toString());
+                                   data.value("email").toString());
                              });
 }
 

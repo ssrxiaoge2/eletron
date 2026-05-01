@@ -12,13 +12,12 @@ class ProfileDialog : public QDialog {
                 const QString &signature, const QString &avatar,
                 const QString &gender, const QString &birthday,
                 const QString &created_at, const QString &email,
-                const QString &region, QWidget *parent = nullptr);
+                QWidget *parent = nullptr);
 
  signals:
   void profileUpdated(const QString &nickname, const QString &signature,
                       const QString &avatar, const QString &gender,
-                      const QString &birthday, const QString &email,
-                      const QString &region);
+                      const QString &birthday, const QString &email);
 
  private:
   void OpenEditor();
@@ -32,7 +31,6 @@ class ProfileDialog : public QDialog {
   QString birthday_;
   QString created_at_;
   QString email_;
-  QString region_;
   QLabel *avatar_label_;
   QLabel *name_label_;
   QLabel *username_label_;
@@ -40,6 +38,5 @@ class ProfileDialog : public QDialog {
   QLabel *gender_label_;
   QLabel *birthday_label_;
   QLabel *email_label_;
-  QLabel *region_label_;
   QLabel *created_at_label_;
 };

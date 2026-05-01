@@ -29,8 +29,7 @@ EditProfileDialog::EditProfileDialog(const QString &nickname,
                                      const QString &avatar,
                                      const QString &gender,
                                      const QString &birthday,
-                                     const QString &email,
-                                     const QString &region, QWidget *parent)
+                                     const QString &email, QWidget *parent)
     : QDialog(parent), avatar_(avatar) {
   setObjectName("darkDialog");
   setWindowTitle(QStringLiteral("\u7f16\u8f91\u8d44\u6599"));
@@ -49,7 +48,6 @@ EditProfileDialog::EditProfileDialog(const QString &nickname,
   gender_edit_ = new QLineEdit(gender, this);
   birthday_edit_ = new QDateEdit(this);
   email_edit_ = new QLineEdit(email, this);
-  region_edit_ = new QLineEdit(region, this);
 
   avatar_label_->setObjectName("profileAvatarLarge");
   avatar_label_->setFixedSize(80, 80);
@@ -70,7 +68,6 @@ EditProfileDialog::EditProfileDialog(const QString &nickname,
   form_layout->addRow(QStringLiteral("\u6027\u522b"), gender_edit_);
   form_layout->addRow(QStringLiteral("\u751f\u65e5"), birthday_edit_);
   form_layout->addRow(QStringLiteral("\u90ae\u7bb1"), email_edit_);
-  form_layout->addRow(QStringLiteral("\u5730\u533a"), region_edit_);
 
   root_layout->setContentsMargins(20, 18, 20, 18);
   root_layout->setSpacing(14);
@@ -113,7 +110,6 @@ void EditProfileDialog::SaveProfile() {
   body.insert("gender", gender_edit_->text().trimmed());
   body.insert("birthday", birthday_edit_->date().toString("yyyy-MM-dd"));
   body.insert("email", email_edit_->text().trimmed());
-  body.insert("region", region_edit_->text().trimmed());
 
   ApiClient::instance()->put(
       "/api/v1/user/profile", body, this,
@@ -131,10 +127,7 @@ void EditProfileDialog::SaveProfile() {
         const QString email =
             data.value("email").toString(email_edit_->text().trimmed());
         const QString avatar = data.value("avatar").toString(avatar_);
-        const QString region =
-            data.value("region").toString(region_edit_->text().trimmed());
-        emit profileUpdated(nickname, signature, avatar, gender, birthday, email,
-                            region);
+        emit profileUpdated(nickname, signature, avatar, gender, birthday, email);
         accept();
       },
       [this]() { QMessageBox::warning(this, QString(), TextSaveFailed()); });

@@ -34,7 +34,7 @@ ProfileDialog::ProfileDialog(const QString &username, const QString &nickname,
                              const QString &signature, const QString &avatar,
                              const QString &gender, const QString &birthday,
                              const QString &created_at, const QString &email,
-                             const QString &region, QWidget *parent)
+                             QWidget *parent)
     : QDialog(parent),
       username_(username),
       nickname_(nickname),
@@ -43,8 +43,7 @@ ProfileDialog::ProfileDialog(const QString &username, const QString &nickname,
       gender_(gender),
       birthday_(birthday),
       created_at_(created_at),
-      email_(email),
-      region_(region) {
+      email_(email) {
   setObjectName("profileDialog");
   setWindowFlags(Qt::Tool | Qt::FramelessWindowHint);
   setFixedWidth(320);
@@ -63,7 +62,6 @@ ProfileDialog::ProfileDialog(const QString &username, const QString &nickname,
   gender_label_ = new QLabel(this);
   birthday_label_ = new QLabel(this);
   email_label_ = new QLabel(this);
-  region_label_ = new QLabel(this);
   created_at_label_ = new QLabel(this);
 
   avatar_label_->setObjectName("profileAvatarLarge");
@@ -86,7 +84,6 @@ ProfileDialog::ProfileDialog(const QString &username, const QString &nickname,
   root_layout->addWidget(gender_label_);
   root_layout->addWidget(birthday_label_);
   root_layout->addWidget(email_label_);
-  root_layout->addWidget(region_label_);
   root_layout->addWidget(created_at_label_);
   root_layout->addWidget(divider);
   root_layout->addLayout(button_layout);
@@ -99,22 +96,20 @@ ProfileDialog::ProfileDialog(const QString &username, const QString &nickname,
 
 void ProfileDialog::OpenEditor() {
   EditProfileDialog dialog(nickname_, signature_, avatar_, gender_, birthday_,
-                           email_, region_, this);
+                           email_, this);
   connect(&dialog, &EditProfileDialog::profileUpdated, this,
           [this](const QString &nickname, const QString &signature,
                  const QString &avatar, const QString &gender,
-                 const QString &birthday, const QString &email,
-                 const QString &region) {
+                 const QString &birthday, const QString &email) {
             nickname_ = nickname;
             signature_ = signature;
             avatar_ = avatar;
             gender_ = gender;
             birthday_ = birthday;
             email_ = email;
-            region_ = region;
             RefreshText();
             emit profileUpdated(nickname_, signature_, avatar_, gender_,
-                                birthday_, email_, region_);
+                                birthday_, email_);
           });
   dialog.exec();
 }
@@ -132,7 +127,6 @@ void ProfileDialog::RefreshText() {
   gender_label_->setText(QStringLiteral("\u6027\u522b\uff1a%1").arg(gender_));
   birthday_label_->setText(QStringLiteral("\u751f\u65e5\uff1a%1").arg(birthday_));
   email_label_->setText(QStringLiteral("\u90ae\u7bb1\uff1a%1").arg(email_));
-  region_label_->setText(QStringLiteral("\u5730\u533a\uff1a%1").arg(region_));
   created_at_label_->setText(QStringLiteral("\u6ce8\u518c\u65f6\u95f4\uff1a%1")
                                  .arg(created_at_));
 }

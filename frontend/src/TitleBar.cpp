@@ -90,8 +90,7 @@ TitleBar::TitleBar(QWidget *parent) : QWidget(parent) {
 void TitleBar::setUserInfo(const QString &username, const QString &nickname,
                            const QString &signature, const QString &avatar,
                            const QString &gender, const QString &birthday,
-                           const QString &created_at, const QString &email,
-                           const QString &region) {
+                           const QString &created_at, const QString &email) {
   username_ = username;
   nickname_ = nickname.isEmpty() ? username : nickname;
   signature_ = signature;
@@ -100,7 +99,6 @@ void TitleBar::setUserInfo(const QString &username, const QString &nickname,
   birthday_ = birthday;
   created_at_ = created_at;
   email_ = email;
-  region_ = region;
   const QString avatar_text =
       nickname_.isEmpty() ? QStringLiteral("\u9e3d") : nickname_.left(1).toUpper();
   ApplyAvatar(avatar_label_, avatar_, avatar_text);
@@ -172,20 +170,18 @@ void TitleBar::ShowProfileDialog() {
                     data.value("birthday").toString(birthday_),
                     data.value("createdAt").toString(
                         data.value("created_at").toString(created_at_)),
-                    data.value("email").toString(email_),
-                    data.value("region").toString(region_));
+                    data.value("email").toString(email_));
 
         auto *dialog = new ProfileDialog(
             username_, nickname_, signature_, avatar_, gender_, birthday_,
-            created_at_, email_, region_, this);
+            created_at_, email_, this);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         connect(dialog, &ProfileDialog::profileUpdated, this,
                 [this](const QString &nickname, const QString &signature,
                        const QString &avatar, const QString &gender,
-                       const QString &birthday, const QString &email,
-                       const QString &region) {
+                       const QString &birthday, const QString &email) {
                   setUserInfo(username_, nickname, signature, avatar, gender,
-                              birthday, created_at_, email, region);
+                              birthday, created_at_, email);
                   emit profileUpdated(nickname, signature);
                 });
         dialog->move(

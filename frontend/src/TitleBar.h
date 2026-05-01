@@ -17,8 +17,7 @@ class TitleBar : public QWidget {
                    const QString &gender = QString(),
                    const QString &birthday = QString(),
                    const QString &created_at = QString(),
-                   const QString &email = QString(),
-                   const QString &region = QString());
+                   const QString &email = QString());
 
  signals:
   void profileUpdated(const QString &nickname, const QString &signature);
@@ -45,7 +44,6 @@ class TitleBar : public QWidget {
   QString birthday_;
   QString created_at_;
   QString email_;
-  QString region_;
   QLabel *avatar_label_;
   QLabel *brand_label_;
   QLabel *nickname_label_;
