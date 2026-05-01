@@ -15,11 +15,11 @@ bool IsDatabaseErrorCode(const QString &code) {
 }
 
 QString DatabaseErrorMessage() {
-  return QString::fromUtf8("无法连接数据库");
+  return QStringLiteral("\u65e0\u6cd5\u8fde\u63a5\u6570\u636e\u5e93");
 }
 
 QString CredentialErrorMessage() {
-  return QString::fromUtf8("账号或密码错误");
+  return QStringLiteral("\u8d26\u53f7\u6216\u5bc6\u7801\u9519\u8bef");
 }
 
 }  // namespace
@@ -67,8 +67,10 @@ void AuthClient::HandleLoginReply(QNetworkReply *reply) {
     return;
   }
 
-  if (status_code >= 200 && status_code < 300) {
-    emit loginSucceeded();
+  if (status_code >= 200 && status_code < 300 && success) {
+    const QJsonObject user = object.value("user").toObject();
+    emit loginSucceeded(user.value("account").toString(),
+                        user.value("nickname").toString());
     return;
   }
 

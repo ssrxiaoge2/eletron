@@ -14,7 +14,7 @@ class AuthClient : public QObject {
   void Login(const QString &username, const QString &password);
 
  signals:
-  void loginSucceeded();
+  void loginSucceeded(const QString &username, const QString &nickname);
   void loginFailed(const QString &message);
 
  private:
