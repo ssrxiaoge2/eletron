@@ -1,7 +1,8 @@
 #include "Database.h"
 
-#include <QSettings>
+#include <QDebug>
 #include <QSqlError>
+#include <QSqlQuery>
 
 namespace Backend::Core {
 
@@ -11,9 +12,31 @@ Database& Database::instance()
     return database;
 }
 
-bool Database::open(const QString& configPath, const QString& connectionName)
+bool Database::initialize(const QString& configPath)
 {
-    return open(loadConfig(configPath, connectionName));
+    if (!Config::instance().load(configPath)) {
+        instance().lastErrorText_ = Config::instance().lastErrorText();
+        qCritical() << "Failed to load config:" << instance().lastErrorText_;
+        return false;
+    }
+
+    return instance().open(Config::instance().databaseConfig());
+}
+
+QSqlDatabase Database::getConnection()
+{
+    return instance().connection();
+}
+
+bool Database::open(const QString& configPath)
+{
+    if (!Config::instance().load(configPath)) {
+        lastErrorText_ = Config::instance().lastErrorText();
+        qCritical() << "Failed to load config:" << lastErrorText_;
+        return false;
+    }
+
+    return open(Config::instance().databaseConfig());
 }
 
 bool Database::open(const DatabaseConfig& config)
@@ -41,10 +64,22 @@ bool Database::open(const DatabaseConfig& config)
 
     if (!opened) {
         lastErrorText_ = errorText;
+        qCritical() << "Failed to connect MySQL:" << lastErrorText_;
         if (QSqlDatabase::contains(connectionName_)) {
             QSqlDatabase::removeDatabase(connectionName_);
         }
         return false;
+    }
+
+    {
+        auto db = QSqlDatabase::database(connectionName_, false);
+        QSqlQuery query(db);
+        if (!query.exec(QStringLiteral("SET NAMES utf8mb4"))) {
+            lastErrorText_ = query.lastError().text();
+            qCritical() << "Failed to set MySQL charset:" << lastErrorText_;
+            close();
+            return false;
+        }
     }
 
     lastErrorText_.clear();
@@ -78,21 +113,6 @@ bool Database::isOpen() const
 QString Database::lastErrorText() const
 {
     return lastErrorText_;
-}
-
-DatabaseConfig Database::loadConfig(const QString& configPath, const QString& connectionName)
-{
-    QSettings settings(configPath, QSettings::IniFormat);
-    settings.beginGroup(QStringLiteral("mysql"));
-
-    DatabaseConfig config;
-    config.host = settings.value(QStringLiteral("host")).toString();
-    config.port = settings.value(QStringLiteral("port"), 3306).toInt();
-    config.databaseName = settings.value(QStringLiteral("database")).toString();
-    config.userName = settings.value(QStringLiteral("username")).toString();
-    config.password = settings.value(QStringLiteral("password")).toString();
-    config.connectionName = connectionName;
-    return config;
 }
 
 } // namespace Backend::Core

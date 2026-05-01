@@ -1,24 +1,20 @@
 #pragma once
 
+#include "Config.h"
+
 #include <QSqlDatabase>
 #include <QString>
 
 namespace Backend::Core {
 
-struct DatabaseConfig {
-    QString host;
-    int port = 3306;
-    QString databaseName;
-    QString userName;
-    QString password;
-    QString connectionName = QStringLiteral("backend_mysql");
-};
-
 class Database final {
 public:
     static Database& instance();
 
-    bool open(const QString& configPath, const QString& connectionName = QStringLiteral("backend_mysql"));
+    static bool initialize(const QString& configPath);
+    static QSqlDatabase getConnection();
+
+    bool open(const QString& configPath);
     bool open(const DatabaseConfig& config);
     void close();
 
@@ -30,8 +26,6 @@ private:
     Database() = default;
     Database(const Database&) = delete;
     Database& operator=(const Database&) = delete;
-
-    static DatabaseConfig loadConfig(const QString& configPath, const QString& connectionName);
 
     QString connectionName_ = QStringLiteral("backend_mysql");
     QString lastErrorText_;

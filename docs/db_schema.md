@@ -1,72 +1,73 @@
 # Database Schema
 
-数据库使用 MySQL 8.0.46，字符集统一为 `utf8mb4`。初始化脚本位于 `sql/init.sql`，所有业务表均包含 `created_at` 和 `updated_at`。
+数据库使用 MySQL 8.0.46，字符集统一为 `utf8mb4`，排序规则为 `utf8mb4_unicode_ci`。初始化脚本位于 `sql/init.sql`，后端目录同步保存 `backend/sql/init.sql`。
+
+所有业务表使用 `ENGINE=InnoDB`。外键字段均建立索引。业务删除统一使用 `is_deleted` 软删除字段，服务端不做物理删除。
 
 ## users
 
-用户账号表。
+用户表。初始化脚本会创建测试用户：`testuser / 123456`、`user1 / 123456`、`user2 / 123456`，密码以 SHA-256 哈希存储。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | id | BIGINT UNSIGNED | 用户主键，自增 |
-| username | VARCHAR(64) | 登录用户名，唯一 |
-| display_name | VARCHAR(64) | 展示昵称 |
-| password_hash | VARCHAR(255) | 密码哈希 |
-| avatar_url | VARCHAR(512) | 头像地址，可为空 |
-| status | ENUM | `active` / `disabled` / `deleted` |
-| last_login_at | DATETIME | 最近登录时间 |
+| username | VARCHAR(32) | 登录账号，唯一 |
+| nickname | VARCHAR(32) | 用户昵称 |
+| password_hash | VARCHAR(256) | SHA-256 密码哈希 |
+| avatar | VARCHAR(512) | 头像地址，默认空字符串 |
+| signature | VARCHAR(128) | 个性签名 |
+| email | VARCHAR(64) | 邮箱地址 |
+| status | TINYINT | 在线状态：0 离线，1 在线，2 隐身 |
 | created_at | DATETIME | 创建时间 |
 | updated_at | DATETIME | 更新时间 |
+| is_deleted | TINYINT(1) | 软删除标记 |
 
 ## friendships
 
-好友关系表。通过 `user_low_id` 和 `user_high_id` 生成列保证任意两个用户之间只有一条关系记录。
+好友关系表。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| id | BIGINT UNSIGNED | 关系主键，自增 |
-| requester_id | BIGINT UNSIGNED | 发起用户 ID |
-| addressee_id | BIGINT UNSIGNED | 接收用户 ID |
-| user_low_id | BIGINT UNSIGNED | 两个用户 ID 中较小值，生成列 |
-| user_high_id | BIGINT UNSIGNED | 两个用户 ID 中较大值，生成列 |
-| status | ENUM | `pending` / `accepted` / `rejected` / `blocked` |
-| requested_at | DATETIME | 申请时间 |
-| accepted_at | DATETIME | 通过时间 |
+| id | BIGINT UNSIGNED | 好友关系主键，自增 |
+| user_id | BIGINT UNSIGNED | 用户 ID，外键到 `users.id` |
+| friend_id | BIGINT UNSIGNED | 好友用户 ID，外键到 `users.id` |
+| status | TINYINT | 状态：0 待确认，1 已同意，2 已拒绝 |
 | created_at | DATETIME | 创建时间 |
 | updated_at | DATETIME | 更新时间 |
+| is_deleted | TINYINT(1) | 软删除标记 |
+
+索引：`idx_friendships_user_id`、`idx_friendships_friend_id`、`uk_friendships_pair`。
 
 ## messages
 
-单聊消息表。
+消息表。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | id | BIGINT UNSIGNED | 消息主键，自增 |
-| sender_id | BIGINT UNSIGNED | 发送用户 ID |
-| receiver_id | BIGINT UNSIGNED | 接收用户 ID |
+| sender_id | BIGINT UNSIGNED | 发送者 ID，外键到 `users.id` |
+| receiver_id | BIGINT UNSIGNED | 接收者 ID，外键到 `users.id` |
 | content | TEXT | 消息内容 |
-| content_type | ENUM | `text` / `image` / `file` / `system` |
-| status | ENUM | `sent` / `delivered` / `read` / `revoked` |
-| sent_at | DATETIME | 发送时间 |
-| delivered_at | DATETIME | 送达时间 |
-| read_at | DATETIME | 已读时间 |
+| type | TINYINT | 消息类型：0 文字，1 图片，2 文件 |
+| is_read | TINYINT(1) | 是否已读 |
 | created_at | DATETIME | 创建时间 |
 | updated_at | DATETIME | 更新时间 |
+| is_deleted | TINYINT(1) | 软删除标记 |
+
+索引：`idx_messages_sender_id`、`idx_messages_receiver_id`、`idx_messages_created_at`。
 
 ## sessions
 
-登录会话表。代码只存储令牌哈希，不保存明文令牌。
+会话表。服务端只保存 JWT 的 SHA-256 哈希，不保存明文 token。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | id | BIGINT UNSIGNED | 会话主键，自增 |
-| user_id | BIGINT UNSIGNED | 所属用户 ID |
-| token_hash | VARCHAR(255) | 访问令牌哈希，唯一 |
-| refresh_token_hash | VARCHAR(255) | 刷新令牌哈希，唯一，可为空 |
-| client_info | VARCHAR(255) | 客户端信息 |
-| ip_address | VARCHAR(45) | IPv4 或 IPv6 地址 |
-| expires_at | DATETIME | 过期时间 |
-| revoked_at | DATETIME | 吊销时间 |
-| last_seen_at | DATETIME | 最近活跃时间 |
+| user_id | BIGINT UNSIGNED | 所属用户 ID，外键到 `users.id` |
+| token_hash | VARCHAR(256) | JWT SHA-256 哈希，唯一 |
+| expired_at | DATETIME | 过期时间 |
 | created_at | DATETIME | 创建时间 |
 | updated_at | DATETIME | 更新时间 |
+| is_deleted | TINYINT(1) | 软删除标记 |
+
+索引：`idx_sessions_user_id`、`idx_sessions_expired_at`。

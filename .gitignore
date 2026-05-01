@@ -7,10 +7,19 @@ obj/
 x64/
 Debug/
 Release/
+backend/build*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Local backend configuration
+backend/config/database.ini
+backend/config/config.ini
 
 # Visual Studio user state
 *.user
 *.suo
 *.VC.db
 *.VC.VC.opendb
-
