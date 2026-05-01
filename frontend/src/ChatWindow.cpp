@@ -1,12 +1,17 @@
 #include "ChatWindow.h"
 
+#include "ApiClient.h"
 #include "MessageBubble.h"
 
+#include <QtCore/QDateTime>
+#include <QtCore/QJsonArray>
+#include <QtCore/QJsonObject>
 #include <QtCore/QTimer>
+#include <QtWidgets/QFrame>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
-#include <QtWidgets/QFrame>
 #include <QtWidgets/QScrollArea>
 #include <QtWidgets/QScrollBar>
 #include <QtWidgets/QStyle>
@@ -26,6 +31,10 @@ QToolButton *CreateToolButton(QWidget *parent, const QString &text,
   return button;
 }
 
+QString SendFailedText() {
+  return QStringLiteral("\u53d1\u9001\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5");
+}
+
 }  // namespace
 
 ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
@@ -37,37 +46,55 @@ ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
   root_layout->addWidget(CreateTitleBar());
   root_layout->addWidget(CreateMessageArea(), 1);
   root_layout->addWidget(CreateInputArea());
+}
 
-  AddTimestamp(QStringLiteral("15:27"));
-  AddMessage(QStringLiteral("\u4f60\u597d\uff0cMainWindow \u7ec8\u4e8e"
-                            "\u5f00\u59cb\u50cf\u4e00\u4e2a\u804a\u5929"
-                            "\u7a97\u53e3\u4e86\u3002"),
-             false);
-  AddMessage(QStringLiteral("\u5148\u7528 Mock \u6570\u636e\u628a UI "
-                            "\u9aa8\u67b6\u8dd1\u901a\uff0c\u540e\u9762"
-                            "\u518d\u63a5 WebSocket\u3002"),
-             true);
-  AddMessage(QStringLiteral("\u6536\u5230\uff0c\u6d88\u606f\u6c14\u6ce1"
-                            "\u548c\u8f93\u5165\u533a\u4e5f\u51c6\u5907"
-                            "\u597d\u4e86\u3002"),
-             false);
+void ChatWindow::loadMessages(int target_user_id, const QString &target_username,
+                              bool is_online) {
+  current_target_user_id_ = target_user_id;
+  current_target_username_ = target_username;
+  name_label_->setText(target_username);
+  online_dot_->setObjectName(is_online ? "onlineDot" : "offlineDot");
+  online_dot_->style()->unpolish(online_dot_);
+  online_dot_->style()->polish(online_dot_);
+
+  RemoveAllBubbles();
+  const QString path = QStringLiteral(
+                           "/api/v1/messages?targetUserId=%1&page=1&pageSize=20")
+                           .arg(target_user_id);
+  ApiClient::instance()->get(path, this, [this](const QJsonObject &response) {
+    const QJsonArray messages =
+        response.value("data").toObject().value("list").toArray();
+    QString last_minute;
+    for (const QJsonValue &value : messages) {
+      const QJsonObject message = value.toObject();
+      const QString created_at = message.value("createdAt").toString();
+      const QString minute = FormatTime(created_at);
+      if (minute != last_minute) {
+        AddTimestamp(minute);
+        last_minute = minute;
+      }
+      AddMessage(message.value("content").toString(),
+                 message.value("isSelf").toBool());
+    }
+    ScrollToBottom();
+  });
 }
 
 QWidget *ChatWindow::CreateTitleBar() {
   auto *title_bar = new QWidget(this);
   auto *layout = new QHBoxLayout(title_bar);
-  auto *name_label = new QLabel(QStringLiteral("\u4e1c\u65b9-Askeai"), title_bar);
-  auto *online_dot = new QLabel(title_bar);
 
   title_bar->setObjectName("chatTitleBar");
-  name_label->setObjectName("chatTitleName");
-  online_dot->setObjectName("onlineDot");
-  online_dot->setFixedSize(8, 8);
+  name_label_ = new QLabel(title_bar);
+  online_dot_ = new QLabel(title_bar);
+  name_label_->setObjectName("chatTitleName");
+  online_dot_->setObjectName("offlineDot");
+  online_dot_->setFixedSize(8, 8);
 
   layout->setContentsMargins(20, 0, 16, 0);
   layout->setSpacing(8);
-  layout->addWidget(name_label);
-  layout->addWidget(online_dot);
+  layout->addWidget(name_label_);
+  layout->addWidget(online_dot_);
   layout->addStretch();
   layout->addWidget(CreateToolButton(title_bar, QStringLiteral("\u8bed"),
                                      style()->standardIcon(QStyle::SP_MediaVolume)));
@@ -108,15 +135,15 @@ QWidget *ChatWindow::CreateInputArea() {
   auto *tool_layout = new QHBoxLayout(tool_bar);
   auto *send_row = new QWidget(input_area);
   auto *send_layout = new QHBoxLayout(send_row);
-  auto *send_button = new QPushButton(QStringLiteral("\u53d1\u9001"), send_row);
   auto *send_more_button = new QToolButton(send_row);
 
   input_area->setObjectName("inputArea");
   tool_bar->setObjectName("inputToolBar");
-  send_button->setObjectName("sendButton");
   send_more_button->setObjectName("sendMoreButton");
   send_more_button->setText("v");
 
+  send_button_ = new QPushButton(QStringLiteral("\u53d1\u9001"), send_row);
+  send_button_->setObjectName("sendButton");
   message_input_ = new QTextEdit(input_area);
   message_input_->setObjectName("messageInput");
 
@@ -132,7 +159,7 @@ QWidget *ChatWindow::CreateInputArea() {
   send_layout->setContentsMargins(0, 0, 14, 10);
   send_layout->setSpacing(6);
   send_layout->addStretch();
-  send_layout->addWidget(send_button);
+  send_layout->addWidget(send_button_);
   send_layout->addWidget(send_more_button);
 
   root_layout->setContentsMargins(0, 0, 0, 0);
@@ -141,7 +168,7 @@ QWidget *ChatWindow::CreateInputArea() {
   root_layout->addWidget(message_input_, 1);
   root_layout->addWidget(send_row);
 
-  connect(send_button, &QPushButton::clicked, this, &ChatWindow::HandleSend);
+  connect(send_button_, &QPushButton::clicked, this, &ChatWindow::HandleSend);
   return input_area;
 }
 
@@ -158,14 +185,43 @@ void ChatWindow::AddMessage(const QString &text, bool sent_by_me) {
   ScrollToBottom();
 }
 
+void ChatWindow::RemoveAllBubbles() {
+  while (message_layout_->count() > 1) {
+    QLayoutItem *item = message_layout_->takeAt(0);
+    if (item->widget() != nullptr) {
+      item->widget()->deleteLater();
+    }
+    delete item;
+  }
+}
+
 void ChatWindow::HandleSend() {
   const QString text = message_input_->toPlainText().trimmed();
-  if (text.isEmpty()) {
+  if (text.isEmpty() || current_target_user_id_ <= 0) {
     return;
   }
 
-  AddMessage(text, true);
-  message_input_->clear();
+  send_button_->setEnabled(false);
+  QJsonObject body;
+  body.insert("receiverId", current_target_user_id_);
+  body.insert("content", text);
+  body.insert("type", 0);
+
+  ApiClient::instance()->post(
+      "/api/v1/messages", body, this,
+      [this, text](const QJsonObject &response) {
+        const QString created_at =
+            response.value("data").toObject().value("createdAt").toString();
+        AddTimestamp(FormatTime(created_at));
+        AddMessage(text, true);
+        message_input_->clear();
+        send_button_->setEnabled(true);
+        emit messageSent(current_target_user_id_, text, created_at);
+      },
+      [this]() {
+        send_button_->setEnabled(true);
+        QMessageBox::warning(this, QString(), SendFailedText());
+      });
 }
 
 void ChatWindow::ScrollToBottom() {
@@ -173,4 +229,13 @@ void ChatWindow::ScrollToBottom() {
     message_scroll_area_->verticalScrollBar()->setValue(
         message_scroll_area_->verticalScrollBar()->maximum());
   });
+}
+
+QString ChatWindow::FormatTime(const QString &raw_time) const {
+  const QDateTime date_time =
+      QDateTime::fromString(raw_time, "yyyy-MM-dd HH:mm:ss");
+  if (date_time.isValid()) {
+    return date_time.time().toString("HH:mm");
+  }
+  return raw_time.left(5);
 }

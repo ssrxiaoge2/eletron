@@ -1,23 +1,32 @@
 #include "ChatListWidget.h"
 
+#include "ApiClient.h"
+
+#include <QtCore/QDateTime>
+#include <QtCore/QJsonArray>
+#include <QtCore/QJsonObject>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListWidget>
-#include <QtWidgets/QPushButton>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
 
 namespace {
 
+constexpr int kTargetUserIdRole = Qt::UserRole + 1;
+
 class SessionItemWidget : public QWidget {
  public:
   SessionItemWidget(const QString &name, const QString &time,
-                    const QString &preview, int unread_count,
+                    const QString &preview, int unread_count, bool is_online,
                     QWidget *parent = nullptr)
       : QWidget(parent) {
     auto *root_layout = new QHBoxLayout(this);
-    auto *avatar = new QLabel(name.left(1).toUpper(), this);
+    auto *avatar_container = new QWidget(this);
+    auto *avatar_layout = new QVBoxLayout(avatar_container);
+    auto *avatar = new QLabel(name.left(1).toUpper(), avatar_container);
+    auto *online_dot = new QLabel(avatar_container);
     auto *text_layout = new QVBoxLayout();
     auto *top_layout = new QHBoxLayout();
     auto *name_label = new QLabel(name, this);
@@ -28,13 +37,21 @@ class SessionItemWidget : public QWidget {
 
     setObjectName("sessionItem");
     avatar->setObjectName("sessionAvatar");
+    online_dot->setObjectName(is_online ? "sessionOnlineDot"
+                                        : "sessionOfflineDot");
     name_label->setObjectName("sessionName");
     time_label->setObjectName("sessionTime");
     preview_label->setObjectName("sessionPreview");
     unread_label->setObjectName("unreadBadge");
 
+    avatar_container->setFixedSize(46, 46);
     avatar->setFixedSize(42, 42);
     avatar->setAlignment(Qt::AlignCenter);
+    online_dot->setFixedSize(8, 8);
+    avatar_layout->setContentsMargins(0, 0, 0, 0);
+    avatar_layout->addWidget(avatar, 0, Qt::AlignTop | Qt::AlignLeft);
+    avatar_layout->addWidget(online_dot, 0, Qt::AlignRight | Qt::AlignBottom);
+
     preview_label->setTextFormat(Qt::PlainText);
     preview_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     unread_label->setVisible(unread_count > 0);
@@ -56,8 +73,8 @@ class SessionItemWidget : public QWidget {
     text_layout->addLayout(bottom_layout);
 
     root_layout->setContentsMargins(12, 8, 10, 8);
-    root_layout->setSpacing(10);
-    root_layout->addWidget(avatar);
+    root_layout->setSpacing(8);
+    root_layout->addWidget(avatar_container);
     root_layout->addLayout(text_layout, 1);
   }
 };
@@ -97,30 +114,71 @@ ChatListWidget::ChatListWidget(QWidget *parent) : QWidget(parent) {
   root_layout->addWidget(search_bar);
   root_layout->addWidget(session_list_, 1);
 
-  AddMockSession(QStringLiteral("\u4e1c\u65b9-Askeai"),
-                 QStringLiteral("15:27"),
-                 QStringLiteral("\u4eca\u5929\u665a\u4e0a\u4e00\u8d77\u804a"),
-                 3);
-  AddMockSession(QStringLiteral("\u98de\u9e3d\u5f00\u53d1\u7fa4"),
-                 QStringLiteral("14:08"),
-                 QStringLiteral("MainWindow \u5df2\u5f00\u59cb\u642d\u5efa"),
-                 0);
-  AddMockSession(QStringLiteral("\u6797\u5c0f\u96e8"),
-                 QStringLiteral("\u6628\u5929"),
-                 QStringLiteral("\u6587\u4ef6\u6536\u5230\u4e86\uff0c\u8c22\u8c22"),
-                 9);
-  AddMockSession(QStringLiteral("\u7cfb\u7edf\u901a\u77e5"),
-                 QStringLiteral("\u5468\u4e00"),
-                 QStringLiteral("\u6b22\u8fce\u4f7f\u7528\u98de\u9e3d\u901a\u8baf"),
-                 0);
+  connect(session_list_, &QListWidget::itemClicked, this,
+          [this](QListWidgetItem *item) {
+            emit conversationSelected(
+                item->data(kTargetUserIdRole).toInt(),
+                item->data(Qt::DisplayRole).toString(),
+                item->data(Qt::UserRole + 2).toBool());
+          });
 }
 
-void ChatListWidget::AddMockSession(const QString &name, const QString &time,
-                                    const QString &preview, int unread_count) {
+void ChatListWidget::loadConversations() {
+  session_list_->clear();
+  ApiClient::instance()->get(
+      "/api/v1/conversations", this,
+      [this](const QJsonObject &response) {
+        const QJsonArray conversations =
+            response.value("data").toArray();
+        for (const QJsonValue &value : conversations) {
+          const QJsonObject item = value.toObject();
+          AddConversation(item.value("targetUserId").toInt(),
+                          item.value("targetUsername").toString(),
+                          item.value("lastMessage").toString(),
+                          item.value("lastMessageTime").toString(),
+                          item.value("unreadCount").toInt(),
+                          item.value("isOnline").toBool());
+        }
+      });
+}
+
+void ChatListWidget::updateConversationPreview(int target_user_id,
+                                               const QString &content,
+                                               const QString &created_at) {
+  for (int i = 0; i < session_list_->count(); ++i) {
+    QListWidgetItem *item = session_list_->item(i);
+    if (item->data(kTargetUserIdRole).toInt() != target_user_id) {
+      continue;
+    }
+    AddConversation(target_user_id, item->data(Qt::DisplayRole).toString(),
+                    content, created_at, 0, item->data(Qt::UserRole + 2).toBool());
+    delete session_list_->takeItem(i);
+    return;
+  }
+}
+
+void ChatListWidget::AddConversation(int target_user_id,
+                                     const QString &target_username,
+                                     const QString &last_message,
+                                     const QString &last_message_time,
+                                     int unread_count, bool is_online) {
   auto *item = new QListWidgetItem();
-  auto *widget =
-      new SessionItemWidget(name, time, preview, unread_count, session_list_);
+  auto *widget = new SessionItemWidget(
+      target_username, FormatTime(last_message_time), last_message,
+      unread_count, is_online, session_list_);
+  item->setData(kTargetUserIdRole, target_user_id);
+  item->setData(Qt::DisplayRole, target_username);
+  item->setData(Qt::UserRole + 2, is_online);
   item->setSizeHint({300, 70});
   session_list_->addItem(item);
   session_list_->setItemWidget(item, widget);
+}
+
+QString ChatListWidget::FormatTime(const QString &raw_time) const {
+  const QDateTime date_time =
+      QDateTime::fromString(raw_time, "yyyy-MM-dd HH:mm:ss");
+  if (date_time.isValid()) {
+    return date_time.time().toString("HH:mm");
+  }
+  return raw_time.left(5);
 }

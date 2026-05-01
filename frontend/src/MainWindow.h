@@ -2,7 +2,8 @@
 
 #include <QtWidgets/QMainWindow>
 
-class QToolButton;
+class ChatListWidget;
+class ChatWindow;
 
 class MainWindow : public QMainWindow {
   Q_OBJECT
@@ -11,10 +12,8 @@ class MainWindow : public QMainWindow {
   explicit MainWindow(QWidget *parent = nullptr);
 
  private:
-  QWidget *CreateTopBar();
-  void ShowUserMenu();
-  void ShowProfileEditor();
   void LoadStyleSheet();
 
-  QToolButton *avatar_button_;
+  ChatListWidget *chat_list_widget_;
+  ChatWindow *chat_window_;
 };

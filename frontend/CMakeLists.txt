@@ -12,6 +12,8 @@ qt_standard_project_setup()
 
 qt_add_executable(qq_desktop_frontend
   src/main.cpp
+  src/ApiClient.cpp
+  src/ApiClient.h
   src/AuthClient.cpp
   src/AuthClient.h
   src/ChatListWidget.cpp
@@ -24,6 +26,8 @@ qt_add_executable(qq_desktop_frontend
   src/MessageBubble.h
   src/NavBar.cpp
   src/NavBar.h
+  src/TitleBar.cpp
+  src/TitleBar.h
   src/LoginWindow.cpp
   src/LoginWindow.h
   resources/MainWindow.qrc

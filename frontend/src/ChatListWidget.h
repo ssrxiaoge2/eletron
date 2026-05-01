@@ -9,10 +9,20 @@ class ChatListWidget : public QWidget {
 
  public:
   explicit ChatListWidget(QWidget *parent = nullptr);
+  void loadConversations();
+  void updateConversationPreview(int target_user_id, const QString &content,
+                                 const QString &created_at);
+
+ signals:
+  void conversationSelected(int target_user_id, const QString &target_username,
+                            bool is_online);
 
  private:
-  void AddMockSession(const QString &name, const QString &time,
-                      const QString &preview, int unread_count);
+  void AddConversation(int target_user_id, const QString &target_username,
+                       const QString &last_message,
+                       const QString &last_message_time, int unread_count,
+                       bool is_online);
+  QString FormatTime(const QString &raw_time) const;
 
   QListWidget *session_list_;
 };

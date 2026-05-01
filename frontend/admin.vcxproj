@@ -105,13 +105,17 @@
     <QtMoc Include="src\ChatWindow.h"/>
     <QtMoc Include="src\MessageBubble.h"/>
     <QtMoc Include="src\NavBar.h"/>
+    <QtMoc Include="src\ApiClient.h"/>
+    <QtMoc Include="src\TitleBar.h"/>
     <ClCompile Include="src\MainWindow.cpp"/>
     <ClCompile Include="src\LoginWindow.cpp"/>
     <ClCompile Include="src\AuthClient.cpp"/>
+    <ClCompile Include="src\ApiClient.cpp"/>
     <ClCompile Include="src\ChatListWidget.cpp"/>
     <ClCompile Include="src\ChatWindow.cpp"/>
     <ClCompile Include="src\MessageBubble.cpp"/>
     <ClCompile Include="src\NavBar.cpp"/>
+    <ClCompile Include="src\TitleBar.cpp"/>
     <ClCompile Include="src\main.cpp"/>
     <None Include="styles\main.qss"/>
 

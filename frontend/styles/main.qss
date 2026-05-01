@@ -1,5 +1,36 @@
 QMainWindow {
   background: #ffffff;
+  border: 1px solid #3a3a3a;
+}
+
+QWidget#titleBar {
+  min-height: 50px;
+  max-height: 50px;
+  background: #1a1a1a;
+}
+
+QLabel#titleBarLabel {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+QWidget#titleBar QToolButton {
+  background: transparent;
+  border: none;
+  color: #cccccc;
+  font-size: 16px;
+  min-width: 46px;
+  min-height: 32px;
+}
+
+QWidget#titleBar QToolButton:hover {
+  background: #3a3a3a;
+}
+
+QWidget#titleBar QToolButton#btnClose:hover {
+  background: #e81123;
+  color: #ffffff;
 }
 
 QWidget#topBar {
@@ -185,6 +216,21 @@ QLabel#onlineDot {
   background: #26c35a;
 }
 
+QLabel#offlineDot {
+  border-radius: 4px;
+  background: #9a9a9a;
+}
+
+QLabel#sessionOnlineDot {
+  border-radius: 4px;
+  background: #26c35a;
+}
+
+QLabel#sessionOfflineDot {
+  border-radius: 4px;
+  background: #9a9a9a;
+}
+
 QToolButton#chatToolButton {
   min-width: 32px;
   max-width: 32px;
@@ -211,9 +257,16 @@ QLabel#messageTimestamp {
   padding: 8px;
 }
 
-QLabel#receivedBubble,
 QLabel#sentBubble {
   background: #1d6fa4;
+  color: #000000;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+QLabel#receivedBubble {
+  background: #3a3a3a;
   color: #000000;
   border-radius: 12px;
   padding: 10px 12px;

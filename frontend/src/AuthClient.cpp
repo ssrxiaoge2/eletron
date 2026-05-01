@@ -1,5 +1,7 @@
 #include "AuthClient.h"
 
+#include "ApiClient.h"
+
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/qscopeguard.h>
@@ -130,6 +132,7 @@ void AuthClient::HandleLoginReply(QNetworkReply *reply) {
   }
 
   if (status_code >= 200 && status_code < 300 && code == 0) {
+    ApiClient::instance()->setToken(data.value("token").toString());
     emit loginSucceeded(data.value("username").toString(), QString(),
                         data.value("token").toString());
     return;
@@ -166,6 +169,7 @@ void AuthClient::HandleQuickLoginReply(QNetworkReply *reply) {
   }
 
   if (status_code >= 200 && status_code < 300 && code == 0) {
+    ApiClient::instance()->setToken(data.value("token").toString());
     emit loginSucceeded(data.value("username").toString(), QString(),
                         data.value("token").toString());
     return;
@@ -207,6 +211,7 @@ void AuthClient::HandleRegisterReply(QNetworkReply *reply) {
   }
 
   if (status_code >= 200 && status_code < 300 && code == 0) {
+    ApiClient::instance()->setToken(data.value("token").toString());
     emit registerSucceeded(data.value("username").toString(), QString(),
                            data.value("token").toString());
     return;
