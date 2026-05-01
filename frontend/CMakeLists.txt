@@ -12,6 +12,8 @@ qt_standard_project_setup()
 
 qt_add_executable(qq_desktop_frontend
   src/main.cpp
+  src/AuthClient.cpp
+  src/AuthClient.h
   src/MainWindow.cpp
   src/MainWindow.h
   src/LoginWindow.cpp

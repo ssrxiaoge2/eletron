@@ -2,6 +2,7 @@
 
 #include <QtWidgets/QWidget>
 
+class AuthClient;
 class QLineEdit;
 class QPushButton;
 
@@ -15,8 +16,10 @@ class LoginWindow : public QWidget {
   void loginSucceeded();
 
  private:
-  void HandleMockLogin();
+  void HandleLogin();
+  void SetLoginPending(bool pending);
 
+  AuthClient *auth_client_;
   QLineEdit *account_edit_;
   QLineEdit *password_edit_;
   QPushButton *login_button_;
