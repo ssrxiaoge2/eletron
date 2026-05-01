@@ -8,6 +8,7 @@ namespace Backend::Models {
 class MessageModel final {
 public:
     static bool findUserIdByToken(const QString& token, qint64* userId);
+    static bool areFriends(qint64 userId, qint64 targetUserId, bool* result);
     static bool fetchConversations(qint64 userId, QJsonArray* conversations);
     static bool fetchHistory(qint64 userId,
                              qint64 targetUserId,

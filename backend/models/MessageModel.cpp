@@ -43,6 +43,32 @@ bool MessageModel::findUserIdByToken(const QString& token, qint64* userId)
     return true;
 }
 
+bool MessageModel::areFriends(qint64 userId, qint64 targetUserId, bool* result)
+{
+    *result = false;
+    auto db = Core::Database::getConnection();
+    if (!db.isValid() || !db.isOpen()) {
+        return false;
+    }
+
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+        "SELECT id FROM friendships "
+        "WHERE user_id = :user_id "
+        "AND friend_id = :target_user_id "
+        "AND status = 1 "
+        "AND is_deleted = 0 "
+        "LIMIT 1"));
+    query.bindValue(QStringLiteral(":user_id"), userId);
+    query.bindValue(QStringLiteral(":target_user_id"), targetUserId);
+    if (!query.exec()) {
+        return false;
+    }
+
+    *result = query.next();
+    return true;
+}
+
 bool MessageModel::fetchConversations(qint64 userId, QJsonArray* conversations)
 {
     auto db = Core::Database::getConnection();

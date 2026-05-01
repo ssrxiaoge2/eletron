@@ -65,6 +65,14 @@ MessageResult MessageService::sendMessage(const QString& bearerToken,
         return error(400, 1000, QStringLiteral("invalid message payload"));
     }
 
+    bool areFriends = false;
+    if (!Models::MessageModel::areFriends(userId, receiverId, &areFriends)) {
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+    if (!areFriends) {
+        return error(403, 3001, QStringLiteral("receiver is not your friend"));
+    }
+
     qint64 messageId = 0;
     QString createdAt;
     if (!Models::MessageModel::insertMessage(userId, receiverId, content, type, &messageId, &createdAt)) {
