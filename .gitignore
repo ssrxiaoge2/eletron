@@ -1,0 +1,16 @@
+.vs/
+.tools/
+
+# Build outputs
+bin/
+obj/
+x64/
+Debug/
+Release/
+
+# Visual Studio user state
+*.user
+*.suo
+*.VC.db
+*.VC.VC.opendb
+
