@@ -18,7 +18,8 @@ constexpr char kSettingsOrg[] = "Feige";
 constexpr char kSettingsApp[] = "DesktopIM";
 constexpr char kCachedUsersGroup[] = "login_users";
 constexpr char kNicknameKey[] = "nickname";
-constexpr char kPasswordKey[] = "password";
+constexpr char kTokenKey[] = "token";
+constexpr char kLegacyPasswordKey[] = "password";
 constexpr int kCachedModeIndex = 0;
 constexpr int kPasswordModeIndex = 1;
 
@@ -70,11 +71,10 @@ QString TextMissingLoginFields() {
   return QStringLiteral("\u8bf7\u8f93\u5165\u7528\u6237\u540d\u548c\u5bc6\u7801");
 }
 
-QString TextNoCachedPassword() {
+QString TextNoCachedToken() {
   return QStringLiteral(
-      "\u8be5\u8d26\u53f7\u6ca1\u6709\u53ef\u7528\u7684\u767b\u5f55"
-      "\u7f13\u5b58\uff0c\u8bf7\u4f7f\u7528\u8d26\u53f7\u5bc6\u7801"
-      "\u767b\u5f55");
+      "\u8be5\u8d26\u53f7\u6ca1\u6709\u53ef\u7528\u7684 token"
+      "\uff0c\u8bf7\u4f7f\u7528\u8d26\u53f7\u5bc6\u7801\u767b\u5f55");
 }
 
 QString TextUsernamePlaceholder() {
@@ -173,7 +173,7 @@ LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent) {
 
   auth_client_ = new AuthClient(this);
   cached_account_combo_ = new QComboBox(this);
-  username_edit_ = new QLineEdit(this);
+  username_combo_ = new QComboBox(this);
   password_edit_ = new QLineEdit(this);
   cached_login_button_ = new QPushButton(TextLogin(), this);
   password_login_button_ = new QPushButton(TextPasswordLogin(), this);
@@ -193,7 +193,9 @@ LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent) {
   avatar_label_->setText(QString());
 
   cached_account_combo_->setEditable(false);
-  username_edit_->setPlaceholderText(TextUsernamePlaceholder());
+  username_combo_->setEditable(true);
+  username_combo_->setInsertPolicy(QComboBox::NoInsert);
+  username_combo_->lineEdit()->setPlaceholderText(TextUsernamePlaceholder());
   password_edit_->setPlaceholderText(TextPasswordPlaceholder());
   password_edit_->setEchoMode(QLineEdit::Password);
   password_login_button_->setObjectName("secondaryButton");
@@ -214,7 +216,7 @@ LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent) {
 
   password_layout->setContentsMargins(0, 0, 0, 0);
   password_layout->setSpacing(14);
-  password_layout->addWidget(username_edit_);
+  password_layout->addWidget(username_combo_);
   password_layout->addWidget(password_edit_);
   password_layout->addStretch();
   password_layout->addWidget(register_button_);
@@ -239,6 +241,8 @@ LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent) {
   connect(cached_account_combo_,
           QOverload<int>::of(&QComboBox::currentIndexChanged), this,
           &LoginWindow::SyncCachedUser);
+  connect(username_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this, &LoginWindow::SyncPasswordUser);
   connect(cached_login_button_, &QPushButton::clicked, this,
           &LoginWindow::HandleCachedLogin);
   connect(password_login_button_, &QPushButton::clicked, this,
@@ -249,10 +253,11 @@ LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent) {
           &LoginWindow::HandleRegister);
   connect(login_button_, &QPushButton::clicked, this, &LoginWindow::HandleLogin);
   connect(auth_client_, &AuthClient::loginSucceeded, this,
-          [this](const QString &username, const QString &nickname) {
+          [this](const QString &username, const QString &nickname,
+                 const QString &token) {
             const QString cached_username =
                 username.isEmpty() ? CurrentUsername() : username;
-            SaveCachedUser(cached_username, nickname, password_edit_->text());
+            SaveCachedUser(cached_username, nickname, token);
             SetAuthPending(false);
             emit loginSucceeded();
           });
@@ -262,10 +267,11 @@ LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent) {
             QMessageBox::warning(this, TextLoginFailed(), message);
           });
   connect(auth_client_, &AuthClient::registerSucceeded, this,
-          [this](const QString &username, const QString &nickname) {
+          [this](const QString &username, const QString &nickname,
+                 const QString &token) {
             const QString cached_username =
                 username.isEmpty() ? CurrentUsername() : username;
-            SaveCachedUser(cached_username, nickname, password_edit_->text());
+            SaveCachedUser(cached_username, nickname, token);
             SetAuthPending(false);
             QMessageBox::information(this, TextRegisterTitle(),
                                      TextRegisterSucceeded());
@@ -294,19 +300,19 @@ void LoginWindow::HandleLogin() {
 
 void LoginWindow::HandleCachedLogin() {
   const QString username = CurrentCachedUsername();
-  const QString password = CachedPassword(username);
+  const QString token = CachedToken(username);
 
-  if (username.isEmpty() || password.isEmpty()) {
-    QMessageBox::warning(this, TextLoginFailed(), TextNoCachedPassword());
+  if (username.isEmpty() || token.isEmpty()) {
+    QMessageBox::warning(this, TextLoginFailed(), TextNoCachedToken());
     ShowPasswordLogin();
     return;
   }
 
-  username_edit_->setText(username);
-  password_edit_->setText(password);
+  username_combo_->setCurrentText(username);
+  password_edit_->clear();
   SetAuthPending(true);
   cached_login_button_->setText(TextLoginPending());
-  auth_client_->Login(username, password);
+  auth_client_->QuickLogin(token);
 }
 
 void LoginWindow::ShowPasswordLogin() {
@@ -321,10 +327,10 @@ void LoginWindow::ShowCachedLogin() {
 
 void LoginWindow::HandleRegister() {
   if (mode_stack_->currentIndex() == kCachedModeIndex) {
-    username_edit_->clear();
+    username_combo_->setCurrentText(QString());
     password_edit_->clear();
     ShowPasswordLogin();
-    username_edit_->setFocus();
+    username_combo_->setFocus();
     return;
   }
 
@@ -349,7 +355,9 @@ void LoginWindow::LoadCachedUsers() {
   for (const QString &username : usernames) {
     settings.beginGroup(username);
     const QString nickname = settings.value(kNicknameKey).toString();
+    settings.remove(kLegacyPasswordKey);
     cached_account_combo_->addItem(DisplayName(username, nickname), username);
+    username_combo_->addItem(username, username);
     settings.endGroup();
   }
 
@@ -363,7 +371,7 @@ void LoginWindow::LoadCachedUsers() {
 
 void LoginWindow::SaveCachedUser(const QString &username,
                                  const QString &nickname,
-                                 const QString &password) {
+                                 const QString &token) {
   if (username.isEmpty()) {
     return;
   }
@@ -373,7 +381,8 @@ void LoginWindow::SaveCachedUser(const QString &username,
   settings.beginGroup(kCachedUsersGroup);
   settings.beginGroup(username);
   settings.setValue(kNicknameKey, visible_nickname);
-  settings.setValue(kPasswordKey, password);
+  settings.setValue(kTokenKey, token);
+  settings.remove(kLegacyPasswordKey);
   settings.endGroup();
   settings.endGroup();
 
@@ -385,6 +394,10 @@ void LoginWindow::SaveCachedUser(const QString &username,
   } else {
     cached_account_combo_->addItem(display_name, username);
     cached_account_combo_->setCurrentIndex(cached_account_combo_->count() - 1);
+  }
+
+  if (username_combo_->findData(username) < 0) {
+    username_combo_->addItem(username, username);
   }
 }
 
@@ -406,12 +419,36 @@ void LoginWindow::SyncCachedUser(int index) {
   avatar_label_->setText(avatar_text.toUpper());
 }
 
+void LoginWindow::SyncPasswordUser(int index) {
+  if (index < 0) {
+    avatar_label_->setText(QString());
+    return;
+  }
+
+  const QString username = username_combo_->itemData(index).toString();
+  if (username.isEmpty()) {
+    avatar_label_->setText(QString());
+    return;
+  }
+
+  QSettings settings(kSettingsOrg, kSettingsApp);
+  settings.beginGroup(kCachedUsersGroup);
+  settings.beginGroup(username);
+  const QString nickname = settings.value(kNicknameKey).toString();
+  settings.endGroup();
+  settings.endGroup();
+
+  const QString avatar_text = (nickname.isEmpty() ? username : nickname).left(1);
+  avatar_label_->setText(avatar_text.toUpper());
+  password_edit_->clear();
+}
+
 void LoginWindow::SetAuthPending(bool pending) {
   cached_account_combo_->setEnabled(!pending);
   cached_login_button_->setEnabled(!pending);
   password_login_button_->setEnabled(!pending);
   cached_register_button_->setEnabled(!pending);
-  username_edit_->setEnabled(!pending);
+  username_combo_->setEnabled(!pending);
   password_edit_->setEnabled(!pending);
   register_button_->setEnabled(!pending);
   login_button_->setEnabled(!pending);
@@ -424,21 +461,21 @@ void LoginWindow::SetAuthPending(bool pending) {
 }
 
 QString LoginWindow::CurrentUsername() const {
-  return username_edit_->text().trimmed();
+  return username_combo_->currentText().trimmed();
 }
 
 QString LoginWindow::CurrentCachedUsername() const {
   return cached_account_combo_->currentData().toString();
 }
 
-QString LoginWindow::CachedPassword(const QString &username) const {
+QString LoginWindow::CachedToken(const QString &username) const {
   QSettings settings(kSettingsOrg, kSettingsApp);
   settings.beginGroup(kCachedUsersGroup);
   settings.beginGroup(username);
-  const QString password = settings.value(kPasswordKey).toString();
+  const QString token = settings.value(kTokenKey).toString();
   settings.endGroup();
   settings.endGroup();
-  return password;
+  return token;
 }
 
 bool LoginWindow::HasCachedUsers() const {

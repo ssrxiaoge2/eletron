@@ -26,19 +26,20 @@ class LoginWindow : public QWidget {
   void HandleRegister();
   void LoadCachedUsers();
   void SaveCachedUser(const QString &username, const QString &nickname,
-                      const QString &password);
+                      const QString &token);
   void SyncCachedUser(int index);
+  void SyncPasswordUser(int index);
   void SetAuthPending(bool pending);
   QString CurrentUsername() const;
   QString CurrentCachedUsername() const;
-  QString CachedPassword(const QString &username) const;
+  QString CachedToken(const QString &username) const;
   bool HasCachedUsers() const;
 
   AuthClient *auth_client_;
   QLabel *avatar_label_;
   QStackedWidget *mode_stack_;
   QComboBox *cached_account_combo_;
-  QLineEdit *username_edit_;
+  QComboBox *username_combo_;
   QLineEdit *password_edit_;
   QPushButton *cached_login_button_;
   QPushButton *password_login_button_;
