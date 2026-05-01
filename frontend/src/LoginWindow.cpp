@@ -44,12 +44,20 @@ QString TextLoginPending() {
   return QStringLiteral("\u767b\u5f55\u4e2d...");
 }
 
+QString TextRegisterPending() {
+  return QStringLiteral("\u6ce8\u518c\u4e2d...");
+}
+
 QString TextLoginFailed() {
   return QStringLiteral("\u767b\u5f55\u5931\u8d25");
 }
 
 QString TextRegisterTitle() {
   return QStringLiteral("\u6ce8\u518c");
+}
+
+QString TextRegisterSucceeded() {
+  return QStringLiteral("\u6ce8\u518c\u6210\u529f");
 }
 
 QString TextMissingLoginFields() {
@@ -60,12 +68,6 @@ QString TextMissingRegisterFields() {
   return QStringLiteral(
       "\u8bf7\u8f93\u5165\u6635\u79f0\u3001\u7528\u6237\u540d\u548c\u5bc6"
       "\u7801");
-}
-
-QString TextRegisterPending() {
-  return QStringLiteral(
-      "\u6ce8\u518c\u63a5\u53e3\u5c1a\u672a\u5199\u5165 docs/api.md"
-      "\uff0c\u5df2\u8bb0\u5f55\u4e3a\u5f85\u5bf9\u63a5\u3002");
 }
 
 QString TextUsernamePlaceholder() {
@@ -195,13 +197,31 @@ LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent) {
                 nickname.isEmpty() ? nickname_edit_->text().trimmed()
                                    : nickname;
             SaveCachedUser(cached_username, cached_nickname);
-            SetLoginPending(false);
+            SetAuthPending(false);
             emit loginSucceeded();
           });
   connect(auth_client_, &AuthClient::loginFailed, this,
           [this](const QString &message) {
-            SetLoginPending(false);
+            SetAuthPending(false);
             QMessageBox::warning(this, TextLoginFailed(), message);
+          });
+  connect(auth_client_, &AuthClient::registerSucceeded, this,
+          [this](const QString &username, const QString &nickname) {
+            const QString cached_username =
+                username.isEmpty() ? CurrentUsername() : username;
+            const QString cached_nickname =
+                nickname.isEmpty() ? nickname_edit_->text().trimmed()
+                                   : nickname;
+            SaveCachedUser(cached_username, cached_nickname);
+            SetAuthPending(false);
+            QMessageBox::information(this, TextRegisterTitle(),
+                                     TextRegisterSucceeded());
+            emit loginSucceeded();
+          });
+  connect(auth_client_, &AuthClient::registerFailed, this,
+          [this](const QString &message) {
+            SetAuthPending(false);
+            QMessageBox::warning(this, TextRegisterTitle(), message);
           });
 }
 
@@ -214,7 +234,8 @@ void LoginWindow::HandleLogin() {
     return;
   }
 
-  SetLoginPending(true);
+  SetAuthPending(true);
+  login_button_->setText(TextLoginPending());
   auth_client_->Login(username, password);
 }
 
@@ -228,7 +249,9 @@ void LoginWindow::HandleRegister() {
     return;
   }
 
-  QMessageBox::information(this, TextRegisterTitle(), TextRegisterPending());
+  SetAuthPending(true);
+  register_button_->setText(TextRegisterPending());
+  auth_client_->Register(nickname, username, password);
 }
 
 void LoginWindow::LoadCachedUsers() {
@@ -280,13 +303,16 @@ void LoginWindow::SyncNicknameFromCachedUser(int index) {
   }
 }
 
-void LoginWindow::SetLoginPending(bool pending) {
+void LoginWindow::SetAuthPending(bool pending) {
   nickname_edit_->setEnabled(!pending);
   username_combo_->setEnabled(!pending);
   password_edit_->setEnabled(!pending);
   register_button_->setEnabled(!pending);
   login_button_->setEnabled(!pending);
-  login_button_->setText(pending ? TextLoginPending() : TextLogin());
+  if (!pending) {
+    register_button_->setText(TextRegister());
+    login_button_->setText(TextLogin());
+  }
 }
 
 QString LoginWindow::CurrentUsername() const {

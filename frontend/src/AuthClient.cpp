@@ -9,6 +9,7 @@
 namespace {
 
 constexpr char kLoginUrl[] = "http://127.0.0.1:8000/auth/login";
+constexpr char kRegisterUrl[] = "http://127.0.0.1:8000/auth/register";
 
 bool IsDatabaseErrorCode(const QString &code) {
   return code == "database_unavailable" || code == "database_error";
@@ -20,6 +21,14 @@ QString DatabaseErrorMessage() {
 
 QString CredentialErrorMessage() {
   return QStringLiteral("\u8d26\u53f7\u6216\u5bc6\u7801\u9519\u8bef");
+}
+
+QString AccountExistsMessage() {
+  return QStringLiteral("\u8d26\u53f7\u5df2\u5b58\u5728");
+}
+
+QString RegisterFailedMessage() {
+  return QStringLiteral("\u6ce8\u518c\u5931\u8d25");
 }
 
 }  // namespace
@@ -40,13 +49,26 @@ void AuthClient::Login(const QString &username, const QString &password) {
           [this, reply]() { HandleLoginReply(reply); });
 }
 
+void AuthClient::Register(const QString &nickname, const QString &username,
+                          const QString &password) {
+  QNetworkRequest request{QUrl(kRegisterUrl)};
+  request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+  QJsonObject payload;
+  payload.insert("username", username);
+  payload.insert("password", password);
+  if (!nickname.isEmpty()) {
+    payload.insert("nickname", nickname);
+  }
+
+  QNetworkReply *reply =
+      network_manager_.post(request, QJsonDocument(payload).toJson());
+  connect(reply, &QNetworkReply::finished, this,
+          [this, reply]() { HandleRegisterReply(reply); });
+}
+
 void AuthClient::HandleLoginReply(QNetworkReply *reply) {
   const auto cleanup = qScopeGuard([reply]() { reply->deleteLater(); });
-
-  if (reply->error() != QNetworkReply::NoError) {
-    emit loginFailed(DatabaseErrorMessage());
-    return;
-  }
 
   const int status_code =
       reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -55,6 +77,11 @@ void AuthClient::HandleLoginReply(QNetworkReply *reply) {
   const QJsonObject object = document.object();
   const QString code = object.value("code").toString();
   const bool success = object.value("success").toBool(false);
+
+  if (reply->error() != QNetworkReply::NoError && status_code == 0) {
+    emit loginFailed(DatabaseErrorMessage());
+    return;
+  }
 
   if (status_code == 503 || IsDatabaseErrorCode(code)) {
     emit loginFailed(DatabaseErrorMessage());
@@ -75,4 +102,46 @@ void AuthClient::HandleLoginReply(QNetworkReply *reply) {
   }
 
   emit loginFailed(CredentialErrorMessage());
+}
+
+void AuthClient::HandleRegisterReply(QNetworkReply *reply) {
+  const auto cleanup = qScopeGuard([reply]() { reply->deleteLater(); });
+
+  const int status_code =
+      reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+  const QByteArray response_body = reply->readAll();
+  const QJsonDocument document = QJsonDocument::fromJson(response_body);
+  const QJsonObject object = document.object();
+  const QString code = object.value("code").toString();
+  const bool success = object.value("success").toBool(false);
+
+  if (reply->error() != QNetworkReply::NoError && status_code == 0) {
+    emit registerFailed(DatabaseErrorMessage());
+    return;
+  }
+
+  if (status_code == 503 || IsDatabaseErrorCode(code)) {
+    emit registerFailed(DatabaseErrorMessage());
+    return;
+  }
+
+  if (status_code == 409 || code == "account_exists") {
+    emit registerFailed(AccountExistsMessage());
+    return;
+  }
+
+  if (status_code == 400 || (!success && status_code >= 200 &&
+                             status_code < 300)) {
+    emit registerFailed(RegisterFailedMessage());
+    return;
+  }
+
+  if (status_code >= 200 && status_code < 300 && success) {
+    const QJsonObject user = object.value("user").toObject();
+    emit registerSucceeded(user.value("account").toString(),
+                           user.value("nickname").toString());
+    return;
+  }
+
+  emit registerFailed(RegisterFailedMessage());
 }

@@ -22,7 +22,7 @@ class LoginWindow : public QWidget {
   void LoadCachedUsers();
   void SaveCachedUser(const QString &username, const QString &nickname);
   void SyncNicknameFromCachedUser(int index);
-  void SetLoginPending(bool pending);
+  void SetAuthPending(bool pending);
   QString CurrentUsername() const;
 
   AuthClient *auth_client_;

@@ -12,13 +12,18 @@ class AuthClient : public QObject {
   explicit AuthClient(QObject *parent = nullptr);
 
   void Login(const QString &username, const QString &password);
+  void Register(const QString &nickname, const QString &username,
+                const QString &password);
 
  signals:
   void loginSucceeded(const QString &username, const QString &nickname);
   void loginFailed(const QString &message);
+  void registerSucceeded(const QString &username, const QString &nickname);
+  void registerFailed(const QString &message);
 
  private:
   void HandleLoginReply(QNetworkReply *reply);
+  void HandleRegisterReply(QNetworkReply *reply);
 
   QNetworkAccessManager network_manager_;
 };
