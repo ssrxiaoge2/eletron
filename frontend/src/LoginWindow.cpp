@@ -4,10 +4,12 @@
 
 #include <QtCore/QSettings>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
+#include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QVBoxLayout>
 
 namespace {
@@ -15,13 +17,13 @@ namespace {
 constexpr char kSettingsOrg[] = "Feige";
 constexpr char kSettingsApp[] = "DesktopIM";
 constexpr char kCachedUsersGroup[] = "login_users";
+constexpr char kNicknameKey[] = "nickname";
+constexpr char kPasswordKey[] = "password";
+constexpr int kCachedModeIndex = 0;
+constexpr int kPasswordModeIndex = 1;
 
 QString TextBrandName() {
   return QStringLiteral("\u98de\u9e3d\u901a\u8baf");
-}
-
-QString TextNickname() {
-  return QStringLiteral("\u6635\u79f0");
 }
 
 QString TextUsername() {
@@ -38,6 +40,10 @@ QString TextRegister() {
 
 QString TextLogin() {
   return QStringLiteral("\u767b\u5f55");
+}
+
+QString TextPasswordLogin() {
+  return QStringLiteral("\u8d26\u53f7\u5bc6\u7801\u767b\u5f55");
 }
 
 QString TextLoginPending() {
@@ -64,68 +70,80 @@ QString TextMissingLoginFields() {
   return QStringLiteral("\u8bf7\u8f93\u5165\u7528\u6237\u540d\u548c\u5bc6\u7801");
 }
 
-QString TextMissingRegisterFields() {
+QString TextNoCachedPassword() {
   return QStringLiteral(
-      "\u8bf7\u8f93\u5165\u6635\u79f0\u3001\u7528\u6237\u540d\u548c\u5bc6"
-      "\u7801");
+      "\u8be5\u8d26\u53f7\u6ca1\u6709\u53ef\u7528\u7684\u767b\u5f55"
+      "\u7f13\u5b58\uff0c\u8bf7\u4f7f\u7528\u8d26\u53f7\u5bc6\u7801"
+      "\u767b\u5f55");
 }
 
 QString TextUsernamePlaceholder() {
-  return QStringLiteral("\u8f93\u5165\u6216\u9009\u62e9\u7528\u6237\u540d");
-}
-
-QString TextNicknamePlaceholder() {
-  return QStringLiteral("\u8f93\u5165\u6635\u79f0");
+  return QStringLiteral("\u8f93\u5165\u7528\u6237\u540d");
 }
 
 QString TextPasswordPlaceholder() {
   return QStringLiteral("\u8f93\u5165\u5bc6\u7801");
 }
 
+QString DisplayName(const QString &username, const QString &nickname) {
+  const QString visible_name = nickname.isEmpty() ? username : nickname;
+  return QStringLiteral("%1  %2").arg(visible_name, username);
+}
+
 QString LoginWindowStyle() {
   return R"(
     LoginWindow {
-      background: #191919;
+      background: #241433;
       color: #f5f5f5;
     }
     QLabel#brandLabel {
-      color: #ffffff;
-      font-size: 26px;
+      color: #f8f6ff;
+      font-size: 28px;
       font-weight: 700;
     }
     QLabel#avatarLabel {
-      background: #2f2f2f;
-      border: 2px solid #4d4d4d;
-      border-radius: 36px;
-      color: #c9c9c9;
+      background: #2e2e2e;
+      border: 2px solid #ffffff;
+      border-radius: 43px;
+      color: #cfcfcf;
       font-size: 28px;
       font-weight: 700;
     }
     QLineEdit,
     QComboBox {
-      min-height: 36px;
-      border: 1px solid #3d3d3d;
-      border-radius: 6px;
+      min-height: 38px;
+      border: 1px solid #4a4056;
+      border-radius: 7px;
       padding: 0 12px;
-      background: #242424;
+      background: #30253b;
       color: #f2f2f2;
       selection-background-color: #2d7dff;
     }
+    QComboBox {
+      min-height: 42px;
+      font-size: 16px;
+    }
     QComboBox::drop-down {
       border: 0;
-      width: 28px;
+      width: 30px;
     }
     QPushButton {
-      min-height: 36px;
+      min-height: 40px;
       border: 0;
-      border-radius: 6px;
-      background: #2d7dff;
+      border-radius: 8px;
+      background: #087dff;
       color: #ffffff;
       font-weight: 600;
     }
+    QPushButton#secondaryButton,
     QPushButton#registerButton {
-      background: #353535;
-      color: #d8d8d8;
+      background: transparent;
+      color: #43a1ff;
+      font-weight: 500;
+    }
+    QPushButton#registerButton {
+      border-left: 1px solid #3b5575;
+      border-radius: 0;
     }
     QPushButton:disabled {
       background: #555555;
@@ -139,53 +157,94 @@ QString LoginWindowStyle() {
 LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent) {
   setObjectName("LoginWindow");
   setWindowTitle(TextBrandName());
-  setFixedSize(380, 520);
+  setFixedSize(400, 560);
   setStyleSheet(LoginWindowStyle());
 
   auto *root_layout = new QVBoxLayout(this);
   auto *brand_label = new QLabel(TextBrandName(), this);
-  auto *avatar_label = new QLabel(QStringLiteral("FG"), this);
+  mode_stack_ = new QStackedWidget(this);
+  avatar_label_ = new QLabel(this);
+
+  auto *cached_page = new QWidget(this);
+  auto *cached_layout = new QVBoxLayout(cached_page);
+  auto *password_page = new QWidget(this);
+  auto *password_layout = new QVBoxLayout(password_page);
+  auto *link_layout = new QHBoxLayout();
 
   auth_client_ = new AuthClient(this);
-  nickname_edit_ = new QLineEdit(this);
-  username_combo_ = new QComboBox(this);
+  cached_account_combo_ = new QComboBox(this);
+  username_edit_ = new QLineEdit(this);
   password_edit_ = new QLineEdit(this);
+  cached_login_button_ = new QPushButton(TextLogin(), this);
+  password_login_button_ = new QPushButton(TextPasswordLogin(), this);
+  cached_register_button_ = new QPushButton(TextRegister(), this);
   register_button_ = new QPushButton(TextRegister(), this);
   login_button_ = new QPushButton(TextLogin(), this);
 
-  root_layout->setContentsMargins(42, 28, 42, 30);
-  root_layout->setSpacing(14);
+  root_layout->setContentsMargins(40, 26, 40, 26);
+  root_layout->setSpacing(18);
 
   brand_label->setObjectName("brandLabel");
   brand_label->setAlignment(Qt::AlignCenter);
 
-  avatar_label->setObjectName("avatarLabel");
-  avatar_label->setAlignment(Qt::AlignCenter);
-  avatar_label->setFixedSize(72, 72);
+  avatar_label_->setObjectName("avatarLabel");
+  avatar_label_->setAlignment(Qt::AlignCenter);
+  avatar_label_->setFixedSize(86, 86);
+  avatar_label_->setText(QString());
 
-  nickname_edit_->setPlaceholderText(TextNicknamePlaceholder());
-  username_combo_->setEditable(true);
-  username_combo_->setInsertPolicy(QComboBox::NoInsert);
-  username_combo_->lineEdit()->setPlaceholderText(TextUsernamePlaceholder());
+  cached_account_combo_->setEditable(false);
+  username_edit_->setPlaceholderText(TextUsernamePlaceholder());
   password_edit_->setPlaceholderText(TextPasswordPlaceholder());
   password_edit_->setEchoMode(QLineEdit::Password);
+  password_login_button_->setObjectName("secondaryButton");
+  cached_register_button_->setObjectName("registerButton");
   register_button_->setObjectName("registerButton");
+
+  cached_layout->setContentsMargins(0, 0, 0, 0);
+  cached_layout->setSpacing(18);
+  cached_layout->addWidget(cached_account_combo_);
+  cached_layout->addWidget(cached_login_button_);
+  cached_layout->addStretch();
+
+  link_layout->setContentsMargins(36, 0, 36, 0);
+  link_layout->setSpacing(0);
+  link_layout->addWidget(password_login_button_);
+  link_layout->addWidget(cached_register_button_);
+  cached_layout->addLayout(link_layout);
+
+  password_layout->setContentsMargins(0, 0, 0, 0);
+  password_layout->setSpacing(14);
+  password_layout->addWidget(username_edit_);
+  password_layout->addWidget(password_edit_);
+  password_layout->addStretch();
+  password_layout->addWidget(register_button_);
+  password_layout->addWidget(login_button_);
+
+  mode_stack_->addWidget(cached_page);
+  mode_stack_->addWidget(password_page);
 
   root_layout->addWidget(brand_label);
   root_layout->addSpacing(8);
-  root_layout->addWidget(avatar_label, 0, Qt::AlignHCenter);
-  root_layout->addSpacing(8);
-  root_layout->addWidget(nickname_edit_);
-  root_layout->addWidget(username_combo_);
-  root_layout->addWidget(password_edit_);
-  root_layout->addStretch();
-  root_layout->addWidget(register_button_);
-  root_layout->addWidget(login_button_);
+  root_layout->addWidget(avatar_label_, 0, Qt::AlignHCenter);
+  root_layout->addSpacing(10);
+  root_layout->addWidget(mode_stack_);
 
   LoadCachedUsers();
+  if (HasCachedUsers()) {
+    ShowCachedLogin();
+  } else {
+    ShowPasswordLogin();
+  }
 
-  connect(username_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
-          this, &LoginWindow::SyncNicknameFromCachedUser);
+  connect(cached_account_combo_,
+          QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+          &LoginWindow::SyncCachedUser);
+  connect(cached_login_button_, &QPushButton::clicked, this,
+          &LoginWindow::HandleCachedLogin);
+  connect(password_login_button_, &QPushButton::clicked, this,
+          &LoginWindow::ShowPasswordLogin);
+  connect(cached_register_button_, &QPushButton::clicked, this,
+          &LoginWindow::HandleRegister);
   connect(register_button_, &QPushButton::clicked, this,
           &LoginWindow::HandleRegister);
   connect(login_button_, &QPushButton::clicked, this, &LoginWindow::HandleLogin);
@@ -193,10 +252,7 @@ LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent) {
           [this](const QString &username, const QString &nickname) {
             const QString cached_username =
                 username.isEmpty() ? CurrentUsername() : username;
-            const QString cached_nickname =
-                nickname.isEmpty() ? nickname_edit_->text().trimmed()
-                                   : nickname;
-            SaveCachedUser(cached_username, cached_nickname);
+            SaveCachedUser(cached_username, nickname, password_edit_->text());
             SetAuthPending(false);
             emit loginSucceeded();
           });
@@ -209,10 +265,7 @@ LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent) {
           [this](const QString &username, const QString &nickname) {
             const QString cached_username =
                 username.isEmpty() ? CurrentUsername() : username;
-            const QString cached_nickname =
-                nickname.isEmpty() ? nickname_edit_->text().trimmed()
-                                   : nickname;
-            SaveCachedUser(cached_username, cached_nickname);
+            SaveCachedUser(cached_username, nickname, password_edit_->text());
             SetAuthPending(false);
             QMessageBox::information(this, TextRegisterTitle(),
                                      TextRegisterSucceeded());
@@ -239,82 +292,155 @@ void LoginWindow::HandleLogin() {
   auth_client_->Login(username, password);
 }
 
+void LoginWindow::HandleCachedLogin() {
+  const QString username = CurrentCachedUsername();
+  const QString password = CachedPassword(username);
+
+  if (username.isEmpty() || password.isEmpty()) {
+    QMessageBox::warning(this, TextLoginFailed(), TextNoCachedPassword());
+    ShowPasswordLogin();
+    return;
+  }
+
+  username_edit_->setText(username);
+  password_edit_->setText(password);
+  SetAuthPending(true);
+  cached_login_button_->setText(TextLoginPending());
+  auth_client_->Login(username, password);
+}
+
+void LoginWindow::ShowPasswordLogin() {
+  mode_stack_->setCurrentIndex(kPasswordModeIndex);
+  avatar_label_->setText(QString());
+}
+
+void LoginWindow::ShowCachedLogin() {
+  mode_stack_->setCurrentIndex(kCachedModeIndex);
+  SyncCachedUser(cached_account_combo_->currentIndex());
+}
+
 void LoginWindow::HandleRegister() {
-  const QString nickname = nickname_edit_->text().trimmed();
+  if (mode_stack_->currentIndex() == kCachedModeIndex) {
+    username_edit_->clear();
+    password_edit_->clear();
+    ShowPasswordLogin();
+    username_edit_->setFocus();
+    return;
+  }
+
   const QString username = CurrentUsername();
   const QString password = password_edit_->text();
 
-  if (nickname.isEmpty() || username.isEmpty() || password.isEmpty()) {
-    QMessageBox::warning(this, TextRegisterTitle(), TextMissingRegisterFields());
+  if (username.isEmpty() || password.isEmpty()) {
+    QMessageBox::warning(this, TextRegisterTitle(), TextMissingLoginFields());
     return;
   }
 
   SetAuthPending(true);
   register_button_->setText(TextRegisterPending());
-  auth_client_->Register(nickname, username, password);
+  auth_client_->Register(QString(), username, password);
 }
 
 void LoginWindow::LoadCachedUsers() {
   QSettings settings(kSettingsOrg, kSettingsApp);
   settings.beginGroup(kCachedUsersGroup);
 
-  const QStringList usernames = settings.childKeys();
+  const QStringList usernames = settings.childGroups();
   for (const QString &username : usernames) {
-    username_combo_->addItem(username, settings.value(username).toString());
+    settings.beginGroup(username);
+    const QString nickname = settings.value(kNicknameKey).toString();
+    cached_account_combo_->addItem(DisplayName(username, nickname), username);
+    settings.endGroup();
   }
 
   settings.endGroup();
 
-  if (username_combo_->count() > 0) {
-    username_combo_->setCurrentIndex(0);
-    SyncNicknameFromCachedUser(0);
+  if (cached_account_combo_->count() > 0) {
+    cached_account_combo_->setCurrentIndex(0);
+    SyncCachedUser(0);
   }
 }
 
 void LoginWindow::SaveCachedUser(const QString &username,
-                                 const QString &nickname) {
+                                 const QString &nickname,
+                                 const QString &password) {
   if (username.isEmpty()) {
     return;
   }
 
+  const QString visible_nickname = nickname.isEmpty() ? username : nickname;
   QSettings settings(kSettingsOrg, kSettingsApp);
   settings.beginGroup(kCachedUsersGroup);
-  settings.setValue(username, nickname);
+  settings.beginGroup(username);
+  settings.setValue(kNicknameKey, visible_nickname);
+  settings.setValue(kPasswordKey, password);
+  settings.endGroup();
   settings.endGroup();
 
-  const int existing_index = username_combo_->findText(username);
+  const int existing_index = cached_account_combo_->findData(username);
+  const QString display_name = DisplayName(username, visible_nickname);
   if (existing_index >= 0) {
-    username_combo_->setItemData(existing_index, nickname);
-    username_combo_->setCurrentIndex(existing_index);
+    cached_account_combo_->setItemText(existing_index, display_name);
+    cached_account_combo_->setCurrentIndex(existing_index);
   } else {
-    username_combo_->addItem(username, nickname);
-    username_combo_->setCurrentIndex(username_combo_->count() - 1);
+    cached_account_combo_->addItem(display_name, username);
+    cached_account_combo_->setCurrentIndex(cached_account_combo_->count() - 1);
   }
 }
 
-void LoginWindow::SyncNicknameFromCachedUser(int index) {
+void LoginWindow::SyncCachedUser(int index) {
   if (index < 0) {
+    avatar_label_->setText(QString());
     return;
   }
 
-  const QString nickname = username_combo_->itemData(index).toString();
-  if (!nickname.isEmpty()) {
-    nickname_edit_->setText(nickname);
-  }
+  const QString username = cached_account_combo_->itemData(index).toString();
+  QSettings settings(kSettingsOrg, kSettingsApp);
+  settings.beginGroup(kCachedUsersGroup);
+  settings.beginGroup(username);
+  const QString nickname = settings.value(kNicknameKey).toString();
+  settings.endGroup();
+  settings.endGroup();
+
+  const QString avatar_text = (nickname.isEmpty() ? username : nickname).left(1);
+  avatar_label_->setText(avatar_text.toUpper());
 }
 
 void LoginWindow::SetAuthPending(bool pending) {
-  nickname_edit_->setEnabled(!pending);
-  username_combo_->setEnabled(!pending);
+  cached_account_combo_->setEnabled(!pending);
+  cached_login_button_->setEnabled(!pending);
+  password_login_button_->setEnabled(!pending);
+  cached_register_button_->setEnabled(!pending);
+  username_edit_->setEnabled(!pending);
   password_edit_->setEnabled(!pending);
   register_button_->setEnabled(!pending);
   login_button_->setEnabled(!pending);
   if (!pending) {
+    cached_login_button_->setText(TextLogin());
+    cached_register_button_->setText(TextRegister());
     register_button_->setText(TextRegister());
     login_button_->setText(TextLogin());
   }
 }
 
 QString LoginWindow::CurrentUsername() const {
-  return username_combo_->currentText().trimmed();
+  return username_edit_->text().trimmed();
+}
+
+QString LoginWindow::CurrentCachedUsername() const {
+  return cached_account_combo_->currentData().toString();
+}
+
+QString LoginWindow::CachedPassword(const QString &username) const {
+  QSettings settings(kSettingsOrg, kSettingsApp);
+  settings.beginGroup(kCachedUsersGroup);
+  settings.beginGroup(username);
+  const QString password = settings.value(kPasswordKey).toString();
+  settings.endGroup();
+  settings.endGroup();
+  return password;
+}
+
+bool LoginWindow::HasCachedUsers() const {
+  return cached_account_combo_->count() > 0;
 }
