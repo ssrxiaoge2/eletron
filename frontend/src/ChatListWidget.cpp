@@ -15,6 +15,9 @@
 namespace {
 
 constexpr int kTargetUserIdRole = Qt::UserRole + 1;
+constexpr int kOnlineRole = Qt::UserRole + 2;
+constexpr int kLastMessageRole = Qt::UserRole + 3;
+constexpr int kLastMessageTimeRole = Qt::UserRole + 4;
 
 class SessionItemWidget : public QWidget {
  public:
@@ -116,10 +119,23 @@ ChatListWidget::ChatListWidget(QWidget *parent) : QWidget(parent) {
 
   connect(session_list_, &QListWidget::itemClicked, this,
           [this](QListWidgetItem *item) {
+            const int target_user_id = item->data(kTargetUserIdRole).toInt();
+            const QString target_username = item->data(Qt::DisplayRole).toString();
+            const bool is_online = item->data(kOnlineRole).toBool();
+            const QString last_message = item->data(kLastMessageRole).toString();
+            const QString last_message_time =
+                item->data(kLastMessageTimeRole).toString();
+            QWidget *old_widget = session_list_->itemWidget(item);
+            session_list_->removeItemWidget(item);
+            if (old_widget != nullptr) {
+              old_widget->deleteLater();
+            }
+            auto *widget = new SessionItemWidget(
+                target_username, FormatTime(last_message_time), last_message, 0,
+                is_online, session_list_);
+            session_list_->setItemWidget(item, widget);
             emit conversationSelected(
-                item->data(kTargetUserIdRole).toInt(),
-                item->data(Qt::DisplayRole).toString(),
-                item->data(Qt::UserRole + 2).toBool());
+                target_user_id, target_username, is_online);
           });
   connect(new_chat_button, &QToolButton::clicked, this,
           &ChatListWidget::newConversationRequested);
@@ -153,7 +169,7 @@ void ChatListWidget::updateConversationPreview(int target_user_id,
       continue;
     }
     AddConversation(target_user_id, item->data(Qt::DisplayRole).toString(),
-                    content, created_at, 0, item->data(Qt::UserRole + 2).toBool());
+                    content, created_at, 0, item->data(kOnlineRole).toBool());
     delete session_list_->takeItem(i);
     return;
   }
@@ -170,7 +186,9 @@ void ChatListWidget::AddConversation(int target_user_id,
       unread_count, is_online, session_list_);
   item->setData(kTargetUserIdRole, target_user_id);
   item->setData(Qt::DisplayRole, target_username);
-  item->setData(Qt::UserRole + 2, is_online);
+  item->setData(kOnlineRole, is_online);
+  item->setData(kLastMessageRole, last_message);
+  item->setData(kLastMessageTimeRole, last_message_time);
   item->setSizeHint({300, 70});
   session_list_->addItem(item);
   session_list_->setItemWidget(item, widget);

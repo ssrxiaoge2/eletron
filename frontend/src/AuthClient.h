@@ -26,7 +26,6 @@ class AuthClient : public QObject {
 
  private:
   void HandleLoginReply(QNetworkReply *reply);
-  void HandleQuickLoginReply(QNetworkReply *reply);
   void HandleRegisterReply(QNetworkReply *reply);
 
   QNetworkAccessManager network_manager_;

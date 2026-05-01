@@ -87,6 +87,9 @@ QString TextPasswordPlaceholder() {
 
 QString DisplayName(const QString &username, const QString &nickname) {
   const QString visible_name = nickname.isEmpty() ? username : nickname;
+  if (visible_name == username) {
+    return username;
+  }
   return QStringLiteral("%1  %2").arg(visible_name, username);
 }
 

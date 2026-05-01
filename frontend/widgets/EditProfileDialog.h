@@ -3,6 +3,7 @@
 #include <QtWidgets/QDialog>
 
 class QLabel;
+class QDateEdit;
 class QLineEdit;
 
 class EditProfileDialog : public QDialog {
@@ -11,11 +12,13 @@ class EditProfileDialog : public QDialog {
  public:
   EditProfileDialog(const QString &nickname, const QString &signature,
                     const QString &avatar, const QString &gender,
-                    const QString &birthday, QWidget *parent = nullptr);
+                    const QString &birthday, const QString &email,
+                    QWidget *parent = nullptr);
 
  signals:
   void profileUpdated(const QString &nickname, const QString &signature,
-                      const QString &gender, const QString &birthday);
+                      const QString &gender, const QString &birthday,
+                      const QString &email);
 
  private:
   void SaveProfile();
@@ -25,5 +28,6 @@ class EditProfileDialog : public QDialog {
   QLineEdit *nickname_edit_;
   QLineEdit *signature_edit_;
   QLineEdit *gender_edit_;
-  QLineEdit *birthday_edit_;
+  QDateEdit *birthday_edit_;
+  QLineEdit *email_edit_;
 };

@@ -12,8 +12,6 @@ namespace {
 
 constexpr char kLoginUrl[] = "http://127.0.0.1:8000/api/v1/auth/login";
 constexpr char kRegisterUrl[] = "http://127.0.0.1:8000/api/v1/auth/register";
-constexpr char kQuickLoginUrl[] =
-    "http://127.0.0.1:8000/api/v1/auth/quick-login";
 
 bool IsDatabaseError(int code, const QString &message) {
   return code == 2001 || code == 2002 || message == "database_unavailable" ||
@@ -73,16 +71,15 @@ void AuthClient::Login(const QString &username, const QString &password) {
 }
 
 void AuthClient::QuickLogin(const QString &token) {
-  QNetworkRequest request{QUrl(kQuickLoginUrl)};
-  request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-
-  QJsonObject payload;
-  payload.insert("token", token);
-
-  QNetworkReply *reply =
-      network_manager_.post(request, QJsonDocument(payload).toJson());
-  connect(reply, &QNetworkReply::finished, this,
-          [this, reply]() { HandleQuickLoginReply(reply); });
+  ApiClient::instance()->setToken(token);
+  ApiClient::instance()->get(
+      "/api/v1/user/profile", this,
+      [this, token](const QJsonObject &response) {
+        const QJsonObject data = ResponseData(response);
+        emit loginSucceeded(data.value("username").toString(),
+                            data.value("nickname").toString(), token);
+      },
+      [this]() { emit loginFailed(SessionErrorMessage()); });
 }
 
 void AuthClient::Register(const QString &nickname, const QString &username,
@@ -139,43 +136,6 @@ void AuthClient::HandleLoginReply(QNetworkReply *reply) {
   }
 
   emit loginFailed(CredentialErrorMessage());
-}
-
-void AuthClient::HandleQuickLoginReply(QNetworkReply *reply) {
-  const auto cleanup = qScopeGuard([reply]() { reply->deleteLater(); });
-
-  const int status_code =
-      reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-  const QByteArray response_body = reply->readAll();
-  const QJsonDocument document = QJsonDocument::fromJson(response_body);
-  const QJsonObject object = document.object();
-  const int code = ResponseCode(object);
-  const QString message = ResponseMessage(object);
-  const QJsonObject data = ResponseData(object);
-
-  if (reply->error() != QNetworkReply::NoError && status_code == 0) {
-    emit loginFailed(DatabaseErrorMessage());
-    return;
-  }
-
-  if (status_code == 503 || IsDatabaseError(code, message)) {
-    emit loginFailed(DatabaseErrorMessage());
-    return;
-  }
-
-  if (status_code == 401 || code != 0) {
-    emit loginFailed(SessionErrorMessage());
-    return;
-  }
-
-  if (status_code >= 200 && status_code < 300 && code == 0) {
-    ApiClient::instance()->setToken(data.value("token").toString());
-    emit loginSucceeded(data.value("username").toString(), QString(),
-                        data.value("token").toString());
-    return;
-  }
-
-  emit loginFailed(SessionErrorMessage());
 }
 
 void AuthClient::HandleRegisterReply(QNetworkReply *reply) {

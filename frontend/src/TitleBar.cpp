@@ -4,6 +4,7 @@
 
 #include <QtCore/QEvent>
 #include <QtGui/QMouseEvent>
+#include <QtGui/QPixmap>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QToolButton>
@@ -12,6 +13,23 @@ namespace {
 
 QString TextBrandName() {
   return QStringLiteral("\u98de\u9e3d\u901a\u8baf");
+}
+
+void ApplyAvatar(QLabel *label, const QString &avatar, const QString &fallback) {
+  QPixmap pixmap;
+  QByteArray decoded = QByteArray::fromBase64(avatar.toUtf8());
+  if (!avatar.isEmpty()) {
+    if (!pixmap.loadFromData(decoded)) {
+      pixmap.load(avatar);
+    }
+  }
+  if (!pixmap.isNull()) {
+    label->setPixmap(pixmap.scaled(label->size(), Qt::KeepAspectRatioByExpanding,
+                                   Qt::SmoothTransformation));
+    return;
+  }
+  label->setPixmap(QPixmap());
+  label->setText(fallback);
 }
 
 }  // namespace
@@ -64,7 +82,7 @@ TitleBar::TitleBar(QWidget *parent) : QWidget(parent) {
 void TitleBar::setUserInfo(const QString &username, const QString &nickname,
                            const QString &signature, const QString &avatar,
                            const QString &gender, const QString &birthday,
-                           const QString &created_at) {
+                           const QString &created_at, const QString &email) {
   username_ = username;
   nickname_ = nickname.isEmpty() ? username : nickname;
   signature_ = signature;
@@ -72,9 +90,10 @@ void TitleBar::setUserInfo(const QString &username, const QString &nickname,
   gender_ = gender;
   birthday_ = birthday;
   created_at_ = created_at;
+  email_ = email;
   const QString avatar_text =
       nickname_.isEmpty() ? QStringLiteral("\u9e3d") : nickname_.left(1).toUpper();
-  avatar_label_->setText(avatar_text);
+  ApplyAvatar(avatar_label_, avatar_, avatar_text);
   const QString short_signature =
       signature_.size() > 20 ? signature_.left(20) + "..." : signature_;
   info_label_->setText(
@@ -135,13 +154,15 @@ void TitleBar::UpdateMaximizeButton() {
 
 void TitleBar::ShowProfileDialog() {
   auto *dialog = new ProfileDialog(username_, nickname_, signature_, avatar_,
-                                   gender_, birthday_, created_at_, this);
+                                   gender_, birthday_, created_at_, email_,
+                                   this);
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   connect(dialog, &ProfileDialog::profileUpdated, this,
           [this](const QString &nickname, const QString &signature,
-                 const QString &gender, const QString &birthday) {
+                 const QString &gender, const QString &birthday,
+                 const QString &email) {
             setUserInfo(username_, nickname, signature, avatar_, gender,
-                        birthday, created_at_);
+                        birthday, created_at_, email);
             emit profileUpdated(nickname, signature);
           });
   dialog->move(avatar_label_->mapToGlobal(avatar_label_->rect().bottomLeft()));

@@ -2,7 +2,10 @@
 
 #include "../src/ApiClient.h"
 
+#include <QtCore/QDate>
 #include <QtCore/QJsonObject>
+#include <QtGui/QPixmap>
+#include <QtWidgets/QDateEdit>
 #include <QtWidgets/QDialogButtonBox>
 #include <QtWidgets/QFormLayout>
 #include <QtWidgets/QLabel>
@@ -23,7 +26,8 @@ EditProfileDialog::EditProfileDialog(const QString &nickname,
                                      const QString &signature,
                                      const QString &avatar,
                                      const QString &gender,
-                                     const QString &birthday, QWidget *parent)
+                                     const QString &birthday,
+                                     const QString &email, QWidget *parent)
     : QDialog(parent), avatar_(avatar) {
   setObjectName("darkDialog");
   setWindowTitle(QStringLiteral("\u7f16\u8f91\u8d44\u6599"));
@@ -40,19 +44,38 @@ EditProfileDialog::EditProfileDialog(const QString &nickname,
   nickname_edit_ = new QLineEdit(nickname, this);
   signature_edit_ = new QLineEdit(signature, this);
   gender_edit_ = new QLineEdit(gender, this);
-  birthday_edit_ = new QLineEdit(birthday, this);
+  birthday_edit_ = new QDateEdit(this);
+  email_edit_ = new QLineEdit(email, this);
 
   avatar_label_->setObjectName("profileAvatarLarge");
   avatar_label_->setFixedSize(80, 80);
   avatar_label_->setAlignment(Qt::AlignCenter);
-  avatar_label_->setText(nickname.isEmpty() ? QStringLiteral("\u9e3d")
-                                            : nickname.left(1).toUpper());
+  QPixmap avatar_pixmap;
+  if (!avatar.isEmpty() &&
+      !avatar_pixmap.loadFromData(QByteArray::fromBase64(avatar.toUtf8()))) {
+    avatar_pixmap.load(avatar);
+  }
+  if (avatar_pixmap.isNull()) {
+    avatar_label_->setText(nickname.isEmpty() ? QStringLiteral("\u9e3d")
+                                              : nickname.left(1).toUpper());
+  } else {
+    avatar_label_->setPixmap(avatar_pixmap.scaled(
+        avatar_label_->size(), Qt::KeepAspectRatioByExpanding,
+        Qt::SmoothTransformation));
+  }
+
+  birthday_edit_->setCalendarPopup(true);
+  birthday_edit_->setDisplayFormat("yyyy-MM-dd");
+  const QDate parsed_birthday = QDate::fromString(birthday, "yyyy-MM-dd");
+  birthday_edit_->setDate(parsed_birthday.isValid() ? parsed_birthday
+                                                    : QDate(2000, 1, 1));
 
   form_layout->addRow(QStringLiteral("\u6635\u79f0"), nickname_edit_);
   form_layout->addRow(QStringLiteral("\u4e2a\u6027\u7b7e\u540d"),
                       signature_edit_);
   form_layout->addRow(QStringLiteral("\u6027\u522b"), gender_edit_);
   form_layout->addRow(QStringLiteral("\u751f\u65e5"), birthday_edit_);
+  form_layout->addRow(QStringLiteral("\u90ae\u7bb1"), email_edit_);
 
   root_layout->setContentsMargins(20, 18, 20, 18);
   root_layout->setSpacing(14);
@@ -72,7 +95,8 @@ void EditProfileDialog::SaveProfile() {
   body.insert("signature", signature_edit_->text().trimmed());
   body.insert("avatar", avatar_);
   body.insert("gender", gender_edit_->text().trimmed());
-  body.insert("birthday", birthday_edit_->text().trimmed());
+  body.insert("birthday", birthday_edit_->date().toString("yyyy-MM-dd"));
+  body.insert("email", email_edit_->text().trimmed());
 
   ApiClient::instance()->put(
       "/api/v1/user/profile", body, this,
@@ -85,8 +109,11 @@ void EditProfileDialog::SaveProfile() {
         const QString gender =
             data.value("gender").toString(gender_edit_->text().trimmed());
         const QString birthday =
-            data.value("birthday").toString(birthday_edit_->text().trimmed());
-        emit profileUpdated(nickname, signature, gender, birthday);
+            data.value("birthday").toString(
+                birthday_edit_->date().toString("yyyy-MM-dd"));
+        const QString email =
+            data.value("email").toString(email_edit_->text().trimmed());
+        emit profileUpdated(nickname, signature, gender, birthday, email);
         accept();
       },
       [this]() { QMessageBox::warning(this, QString(), TextSaveFailed()); });
