@@ -48,6 +48,19 @@ void ApiClient::post(const QString &path, const QJsonObject &body,
   });
 }
 
+void ApiClient::put(const QString &path, const QJsonObject &body,
+                    const QObject *receiver,
+                    std::function<void(const QJsonObject &)> on_success,
+                    std::function<void()> on_failure) {
+  QNetworkRequest request = CreateRequest(path);
+  request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+  QNetworkReply *reply =
+      network_manager_.put(request, QJsonDocument(body).toJson());
+  connect(reply, &QNetworkReply::finished, this, [=]() {
+    HandleReply(reply, receiver, on_success, on_failure);
+  });
+}
+
 QNetworkRequest ApiClient::CreateRequest(const QString &path) const {
   QNetworkRequest request(QUrl(QString::fromLatin1(kBaseUrl) + path));
   if (!token_.isEmpty()) {

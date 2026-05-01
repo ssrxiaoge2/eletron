@@ -1,5 +1,8 @@
 #include "TitleBar.h"
 
+#include "../widgets/ProfileDialog.h"
+
+#include <QtCore/QEvent>
 #include <QtGui/QMouseEvent>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
@@ -18,20 +21,29 @@ TitleBar::TitleBar(QWidget *parent) : QWidget(parent) {
   setFixedHeight(50);
 
   auto *layout = new QHBoxLayout(this);
-  auto *title_label = new QLabel(TextBrandName(), this);
   auto *minimize_button = new QToolButton(this);
   maximize_button_ = new QToolButton(this);
   auto *close_button = new QToolButton(this);
 
-  title_label->setObjectName("titleBarLabel");
+  avatar_label_ = new QLabel(this);
+  info_label_ = new QLabel(this);
+  avatar_label_->setObjectName("titleAvatar");
+  info_label_->setObjectName("titleUserInfo");
+  avatar_label_->setFixedSize(40, 40);
+  avatar_label_->setAlignment(Qt::AlignCenter);
+  avatar_label_->setContextMenuPolicy(Qt::CustomContextMenu);
+  avatar_label_->installEventFilter(this);
+  info_label_->setTextFormat(Qt::RichText);
+
   minimize_button->setText(QStringLiteral("\u2014"));
   maximize_button_->setText(QStringLiteral("\u25a1"));
   close_button->setObjectName("btnClose");
   close_button->setText(QStringLiteral("\u00d7"));
 
   layout->setContentsMargins(16, 0, 0, 0);
-  layout->setSpacing(0);
-  layout->addWidget(title_label);
+  layout->setSpacing(10);
+  layout->addWidget(avatar_label_);
+  layout->addWidget(info_label_);
   layout->addStretch();
   layout->addWidget(minimize_button);
   layout->addWidget(maximize_button_);
@@ -44,6 +56,43 @@ TitleBar::TitleBar(QWidget *parent) : QWidget(parent) {
           &TitleBar::ToggleMaximized);
   connect(close_button, &QToolButton::clicked, this,
           [this]() { window()->close(); });
+  connect(avatar_label_, &QWidget::customContextMenuRequested, this,
+          [this](const QPoint &) { ShowProfileDialog(); });
+  setUserInfo(QString(), QString(), QString(), QString());
+}
+
+void TitleBar::setUserInfo(const QString &username, const QString &nickname,
+                           const QString &signature, const QString &avatar,
+                           const QString &gender, const QString &birthday,
+                           const QString &created_at) {
+  username_ = username;
+  nickname_ = nickname.isEmpty() ? username : nickname;
+  signature_ = signature;
+  avatar_ = avatar;
+  gender_ = gender;
+  birthday_ = birthday;
+  created_at_ = created_at;
+  const QString avatar_text =
+      nickname_.isEmpty() ? QStringLiteral("\u9e3d") : nickname_.left(1).toUpper();
+  avatar_label_->setText(avatar_text);
+  const QString short_signature =
+      signature_.size() > 20 ? signature_.left(20) + "..." : signature_;
+  info_label_->setText(
+      QStringLiteral("<b style='font-size:14px;color:white;'>%1</b> "
+                     "<span style='font-size:13px;color:#aaaaaa;'>%2</span> "
+                     "<span style='font-size:12px;color:#888888;'>%3</span>")
+          .arg(TextBrandName(), nickname_, short_signature));
+}
+
+bool TitleBar::eventFilter(QObject *watched, QEvent *event) {
+  if (watched == avatar_label_ && event->type() == QEvent::MouseButtonRelease) {
+    auto *mouse_event = static_cast<QMouseEvent *>(event);
+    if (mouse_event->button() == Qt::LeftButton) {
+      ShowProfileDialog();
+      return true;
+    }
+  }
+  return QWidget::eventFilter(watched, event);
 }
 
 void TitleBar::mousePressEvent(QMouseEvent *event) {
@@ -82,4 +131,19 @@ void TitleBar::ToggleMaximized() {
 void TitleBar::UpdateMaximizeButton() {
   maximize_button_->setText(window()->isMaximized() ? QStringLiteral("\u2750")
                                                     : QStringLiteral("\u25a1"));
+}
+
+void TitleBar::ShowProfileDialog() {
+  auto *dialog = new ProfileDialog(username_, nickname_, signature_, avatar_,
+                                   gender_, birthday_, created_at_, this);
+  dialog->setAttribute(Qt::WA_DeleteOnClose);
+  connect(dialog, &ProfileDialog::profileUpdated, this,
+          [this](const QString &nickname, const QString &signature,
+                 const QString &gender, const QString &birthday) {
+            setUserInfo(username_, nickname, signature, avatar_, gender,
+                        birthday, created_at_);
+            emit profileUpdated(nickname, signature);
+          });
+  dialog->move(avatar_label_->mapToGlobal(avatar_label_->rect().bottomLeft()));
+  dialog->show();
 }

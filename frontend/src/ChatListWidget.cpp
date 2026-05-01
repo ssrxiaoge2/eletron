@@ -121,6 +121,8 @@ ChatListWidget::ChatListWidget(QWidget *parent) : QWidget(parent) {
                 item->data(Qt::DisplayRole).toString(),
                 item->data(Qt::UserRole + 2).toBool());
           });
+  connect(new_chat_button, &QToolButton::clicked, this,
+          &ChatListWidget::newConversationRequested);
 }
 
 void ChatListWidget::loadConversations() {

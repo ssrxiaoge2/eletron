@@ -16,6 +16,7 @@ class ChatListWidget : public QWidget {
  signals:
   void conversationSelected(int target_user_id, const QString &target_username,
                             bool is_online);
+  void newConversationRequested();
 
  private:
   void AddConversation(int target_user_id, const QString &target_username,

@@ -107,6 +107,10 @@
     <QtMoc Include="src\NavBar.h"/>
     <QtMoc Include="src\ApiClient.h"/>
     <QtMoc Include="src\TitleBar.h"/>
+    <QtMoc Include="widgets\AddFriendDialog.h"/>
+    <QtMoc Include="widgets\EditProfileDialog.h"/>
+    <QtMoc Include="widgets\FriendListWidget.h"/>
+    <QtMoc Include="widgets\ProfileDialog.h"/>
     <ClCompile Include="src\MainWindow.cpp"/>
     <ClCompile Include="src\LoginWindow.cpp"/>
     <ClCompile Include="src\AuthClient.cpp"/>
@@ -117,6 +121,10 @@
     <ClCompile Include="src\NavBar.cpp"/>
     <ClCompile Include="src\TitleBar.cpp"/>
     <ClCompile Include="src\main.cpp"/>
+    <ClCompile Include="widgets\AddFriendDialog.cpp"/>
+    <ClCompile Include="widgets\EditProfileDialog.cpp"/>
+    <ClCompile Include="widgets\FriendListWidget.cpp"/>
+    <ClCompile Include="widgets\ProfileDialog.cpp"/>
     <None Include="styles\main.qss"/>
 
   </ItemGroup>

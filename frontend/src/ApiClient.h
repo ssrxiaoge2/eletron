@@ -4,6 +4,8 @@
 #include <QtCore/QObject>
 #include <QtNetwork/QNetworkAccessManager>
 
+#include <functional>
+
 class QNetworkReply;
 
 class ApiClient : public QObject {
@@ -22,6 +24,9 @@ class ApiClient : public QObject {
             const QObject *receiver,
             std::function<void(const QJsonObject &)> on_success,
             std::function<void()> on_failure = {});
+  void put(const QString &path, const QJsonObject &body, const QObject *receiver,
+           std::function<void(const QJsonObject &)> on_success,
+           std::function<void()> on_failure = {});
 
  private:
   explicit ApiClient(QObject *parent = nullptr);
