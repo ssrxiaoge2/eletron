@@ -6,6 +6,7 @@ USE im_app;
 
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS files;
 DROP TABLE IF EXISTS messages;
 DROP TABLE IF EXISTS conversations;
 DROP TABLE IF EXISTS friendships;
@@ -41,6 +42,26 @@ CREATE TABLE friendships (
   KEY idx_friendships_friend_id (friend_id),
   CONSTRAINT fk_friendships_user_id FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_friendships_friend_id FOREIGN KEY (friend_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE files (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  uploader_id BIGINT UNSIGNED NOT NULL,
+  receiver_id BIGINT UNSIGNED NOT NULL,
+  file_name VARCHAR(256) NOT NULL COMMENT 'original file name',
+  stored_name VARCHAR(256) NOT NULL COMMENT 'server stored name',
+  file_size BIGINT UNSIGNED NOT NULL COMMENT 'bytes',
+  file_type TINYINT NOT NULL COMMENT '1 image 2 file',
+  mime_type VARCHAR(128) DEFAULT '',
+  storage_path VARCHAR(512) NOT NULL COMMENT 'absolute server path',
+  thumbnail_path VARCHAR(512) DEFAULT '' COMMENT 'thumbnail path',
+  is_deleted TINYINT(1) DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_files_uploader (uploader_id),
+  KEY idx_files_receiver (receiver_id),
+  CONSTRAINT fk_files_uploader_id FOREIGN KEY (uploader_id) REFERENCES users(id),
+  CONSTRAINT fk_files_receiver_id FOREIGN KEY (receiver_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE messages (

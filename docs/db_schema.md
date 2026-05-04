@@ -58,6 +58,28 @@
 
 索引：`idx_messages_sender_id`、`idx_messages_receiver_id`、`idx_messages_created_at`。
 
+## files
+
+文件/图片元数据表。文件二进制内容保存到后端本地 `backend/storage/`，数据库仅保存路径和访问元数据。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | BIGINT UNSIGNED | 文件主键，自增 |
+| uploader_id | BIGINT UNSIGNED | 上传者用户 ID，外键到 `users.id` |
+| receiver_id | BIGINT UNSIGNED | 接收者用户 ID，外键到 `users.id` |
+| file_name | VARCHAR(256) | 原始文件名 |
+| stored_name | VARCHAR(256) | 服务端 UUID 重命名后的文件名 |
+| file_size | BIGINT UNSIGNED | 文件字节数 |
+| file_type | TINYINT | 文件类型：1 图片，2 普通文件 |
+| mime_type | VARCHAR(128) | MIME 类型 |
+| storage_path | VARCHAR(512) | 服务端绝对存储路径 |
+| thumbnail_path | VARCHAR(512) | 图片缩略图路径，普通文件为空 |
+| is_deleted | TINYINT(1) | 软删除标记 |
+| created_at | DATETIME | 创建时间 |
+| updated_at | DATETIME | 更新时间 |
+
+索引：`idx_files_uploader`、`idx_files_receiver`。
+
 ## conversations
 
 会话表。用于记录用户点击好友后创建的会话入口，避免数据库层产生重复会话。

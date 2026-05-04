@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Core Network Sql HttpServer WebSockets)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Network Sql HttpServer WebSockets)
 
 qt_standard_project_setup()
 
@@ -20,12 +20,16 @@ qt_add_executable(im_backend
     core/Database.h
     core/JwtHelper.cpp
     core/JwtHelper.h
+    core/FileHelper.cpp
+    core/FileHelper.h
     models/UserModel.cpp
     models/UserModel.h
     models/MessageModel.cpp
     models/MessageModel.h
     models/FriendshipModel.cpp
     models/FriendshipModel.h
+    models/FileModel.cpp
+    models/FileModel.h
     routers/AuthRouter.cpp
     routers/AuthRouter.h
     routers/MessageRouter.cpp
@@ -34,6 +38,8 @@ qt_add_executable(im_backend
     routers/FriendRouter.h
     routers/UserRouter.cpp
     routers/UserRouter.h
+    routers/FileRouter.cpp
+    routers/FileRouter.h
     realtime/WebSocketGateway.cpp
     realtime/WebSocketGateway.h
     services/AuthService.cpp
@@ -44,11 +50,14 @@ qt_add_executable(im_backend
     services/FriendService.h
     services/UserService.cpp
     services/UserService.h
+    services/FileService.cpp
+    services/FileService.h
 )
 
 target_link_libraries(im_backend
     PRIVATE
         Qt6::Core
+        Qt6::Gui
         Qt6::Network
         Qt6::Sql
         Qt6::HttpServer

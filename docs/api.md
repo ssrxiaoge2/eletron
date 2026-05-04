@@ -25,6 +25,10 @@
 | GET | `/api/v1/user/profile` | 获取当前用户资料 |
 | PUT | `/api/v1/user/profile` | 修改当前用户资料 |
 | POST | `/api/v1/user/avatar` | 上传当前用户头像 |
+| POST | `/api/v1/files/upload` | 上传文件或图片并生成消息 |
+| GET | `/api/v1/files/download/{fileId}` | 下载文件 |
+| GET | `/api/v1/files/thumbnail/{fileId}` | 获取图片缩略图 |
+| GET | `/api/v1/files/info/{fileId}` | 获取文件信息 |
 
 ## Response Envelope
 
@@ -284,6 +288,12 @@ GET /api/v1/messages?targetUserId=2&page=1&pageSize=20
 ```
 
 `isSelf` 由后端根据 token 对应的当前用户 ID 判断，前端可直接用于消息气泡左右对齐。
+
+消息 `type` 字段含义：
+
+- `0`：文字消息，`content` 为纯文本。
+- `1`：图片消息，`content` 为文件 JSON 字符串，包含 `fileId`、`fileName`、`fileSize`、`url`、`thumbnailUrl`。
+- `2`：文件消息，`content` 为文件 JSON 字符串，包含 `fileId`、`fileName`、`fileSize`、`url`、`thumbnailUrl`。
 
 ## POST `/api/v1/messages`
 
@@ -603,6 +613,141 @@ Authorization: Bearer {token}
   "data": {
     "avatar": "/uploads/avatars/user_3_xxx.png",
     "avatarUrl": "/uploads/avatars/user_3_xxx.png"
+  }
+}
+```
+
+## POST `/api/v1/files/upload`
+
+Header:
+
+```http
+Authorization: Bearer {token}
+Content-Type: multipart/form-data
+```
+
+表单字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| file | 文件二进制内容 |
+| type | `1` 图片，`2` 普通文件 |
+| receiverId | 接收方用户 ID |
+
+成功响应：HTTP `200`。上传成功后，后端会自动写入一条 `messages` 记录：图片消息 `type=1`，普通文件消息 `type=2`，`content` 为文件 JSON 字符串。
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "fileId": 1001,
+    "fileName": "screenshot.png",
+    "fileSize": 204800,
+    "fileType": 1,
+    "mimeType": "image/png",
+    "uploaderUserId": 1001,
+    "url": "/api/v1/files/download/1001",
+    "thumbnailUrl": "/api/v1/files/thumbnail/1001",
+    "createdAt": "2024-01-01 15:30:00"
+  }
+}
+```
+
+文件超过大小限制：HTTP `413`
+
+```json
+{
+  "code": 4001,
+  "message": "file exceeds size limit"
+}
+```
+
+不支持的文件类型：HTTP `400`
+
+```json
+{
+  "code": 4003,
+  "message": "unsupported file type"
+}
+```
+
+## GET `/api/v1/files/download/{fileId}`
+
+Header:
+
+```http
+Authorization: Bearer {token}
+```
+
+功能：验证 token，并确认当前用户是文件发送方或接收方之一。成功时返回文件二进制流。
+
+成功响应 Header：
+
+```http
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename="原始文件名"
+Content-Length: 文件大小
+```
+
+无权访问：HTTP `403`
+
+```json
+{
+  "code": 1003,
+  "message": "无权访问"
+}
+```
+
+文件不存在：HTTP `404`
+
+```json
+{
+  "code": 4002,
+  "message": "file not found"
+}
+```
+
+## GET `/api/v1/files/thumbnail/{fileId}`
+
+Header:
+
+```http
+Authorization: Bearer {token}
+```
+
+功能：返回图片缩略图二进制流，缩略图最大 `200x200px`。普通文件或文件不存在返回 `4002`。
+
+成功响应 Header：
+
+```http
+Content-Type: image/png
+Content-Length: 缩略图字节数
+```
+
+## GET `/api/v1/files/info/{fileId}`
+
+Header:
+
+```http
+Authorization: Bearer {token}
+```
+
+成功响应：HTTP `200`
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "fileId": 1001,
+    "fileName": "document.pdf",
+    "fileSize": 1048576,
+    "fileType": 2,
+    "mimeType": "application/pdf",
+    "uploaderUserId": 1001,
+    "url": "/api/v1/files/download/1001",
+    "createdAt": "2024-01-01 15:30:00"
   }
 }
 ```
