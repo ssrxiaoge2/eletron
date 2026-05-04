@@ -80,6 +80,10 @@ AuthResult AuthService::login(const QString& username, const QString& password) 
         return error(503, 2003, QStringLiteral("jwt_unavailable"));
     }
 
+    if (!db.transaction()) {
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
     QSqlQuery sessionQuery(db);
     sessionQuery.prepare(QStringLiteral(
         "INSERT INTO sessions (user_id, token_hash, expired_at) "
@@ -87,6 +91,21 @@ AuthResult AuthService::login(const QString& username, const QString& password) 
     sessionQuery.bindValue(QStringLiteral(":user_id"), userId);
     sessionQuery.bindValue(QStringLiteral(":token_hash"), Core::JwtHelper::sha256Hex(token));
     if (!sessionQuery.exec()) {
+        db.rollback();
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
+    QSqlQuery statusQuery(db);
+    statusQuery.prepare(QStringLiteral(
+        "UPDATE users SET status = 1 WHERE id = :user_id AND is_deleted = 0"));
+    statusQuery.bindValue(QStringLiteral(":user_id"), userId);
+    if (!statusQuery.exec()) {
+        db.rollback();
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
+    if (!db.commit()) {
+        db.rollback();
         return error(503, 2002, QStringLiteral("database_error"));
     }
 
