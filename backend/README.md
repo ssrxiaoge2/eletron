@@ -193,3 +193,37 @@ Invoke-RestMethod `
 ## 会话唯一性
 
 `POST /api/v1/conversations` 会写入 `conversations` 表。数据库使用 `(user_id, target_user_id)` 唯一约束，重复点击同一个好友不会创建重复会话，会直接复用已有 `conversationId`。
+
+## 标记消息已读
+
+前端打开会话或清除红点时调用：
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8000/api/v1/messages/read `
+  -Method Post `
+  -Headers $headers `
+  -ContentType "application/json" `
+  -Body (@{ targetUserId = 4 } | ConvertTo-Json)
+```
+
+也可以调用等价接口：
+
+```text
+POST /api/v1/conversations/read
+```
+
+成功响应：
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "targetUserId": 4,
+    "readCount": 3
+  }
+}
+```
+
+后端会把 `targetUserId` 发给当前用户的未读消息更新为 `is_read = 1`，因此软件重启后未读红点也会保持消失。

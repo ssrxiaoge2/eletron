@@ -47,6 +47,23 @@ int queryInt(const QUrlQuery& query, const QString& name, int fallback)
     return ok ? value : fallback;
 }
 
+QHttpServerResponse handleReadRequest(const QHttpServerRequest& request)
+{
+    QJsonParseError parseError;
+    const auto document = QJsonDocument::fromJson(request.body(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        return jsonResponse({
+                                { QStringLiteral("code"), 1000 },
+                                { QStringLiteral("message"), QStringLiteral("invalid request body") }
+                            },
+                            400);
+    }
+
+    const auto targetUserId = document.object().value(QStringLiteral("targetUserId")).toVariant().toLongLong();
+    const Services::MessageService service;
+    return serviceResponse(service.markRead(authorizationHeader(request), targetUserId));
+}
+
 } // namespace
 
 void MessageRouter::registerRoutes(QHttpServer& server)
@@ -106,6 +123,18 @@ void MessageRouter::registerRoutes(QHttpServer& server)
                          receiverId,
                          content,
                          type));
+                 });
+
+    server.route(QStringLiteral("/api/v1/messages/read"),
+                 QHttpServerRequest::Method::Post,
+                 [](const QHttpServerRequest& request) {
+                     return handleReadRequest(request);
+                 });
+
+    server.route(QStringLiteral("/api/v1/conversations/read"),
+                 QHttpServerRequest::Method::Post,
+                 [](const QHttpServerRequest& request) {
+                     return handleReadRequest(request);
                  });
 }
 

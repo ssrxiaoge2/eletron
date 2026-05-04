@@ -13,6 +13,8 @@
 | POST | `/api/v1/conversations` | 点击好友发起聊天 |
 | GET | `/api/v1/messages` | 分页获取历史消息 |
 | POST | `/api/v1/messages` | 发送消息 |
+| POST | `/api/v1/messages/read` | 标记与指定用户的消息已读 |
+| POST | `/api/v1/conversations/read` | 标记指定会话已读 |
 | GET | `/api/v1/users/search` | 搜索用户 |
 | GET | `/api/v1/friends` | 获取好友列表 |
 | POST | `/api/v1/friends/apply` | 发送好友申请 |
@@ -271,6 +273,39 @@ Authorization: Bearer {token}
   "message": "invalid or expired token"
 }
 ```
+
+## POST `/api/v1/messages/read`
+
+Header:
+
+```http
+Authorization: Bearer {token}
+```
+
+请求体：
+
+```json
+{
+  "targetUserId": 2
+}
+```
+
+功能：将 `targetUserId` 发给当前登录用户的未读消息持久化标记为已读。前端打开会话或清除红点时调用该接口，重启软件后红点不会恢复。
+
+成功响应：HTTP `200`
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "targetUserId": 2,
+    "readCount": 3
+  }
+}
+```
+
+`POST /api/v1/conversations/read` 是同等能力的别名，请求体和响应完全一致。
 
 ## GET `/api/v1/users/search`
 

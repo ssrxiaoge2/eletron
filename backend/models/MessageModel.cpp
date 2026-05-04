@@ -246,4 +246,30 @@ bool MessageModel::insertMessage(qint64 senderId,
     return true;
 }
 
+bool MessageModel::markConversationRead(qint64 userId, qint64 targetUserId, int* readCount)
+{
+    *readCount = 0;
+    auto db = Core::Database::getConnection();
+    if (!db.isValid() || !db.isOpen()) {
+        return false;
+    }
+
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+        "UPDATE messages "
+        "SET is_read = 1 "
+        "WHERE sender_id = :target_user_id "
+        "AND receiver_id = :user_id "
+        "AND is_read = 0 "
+        "AND is_deleted = 0"));
+    query.bindValue(QStringLiteral(":target_user_id"), targetUserId);
+    query.bindValue(QStringLiteral(":user_id"), userId);
+    if (!query.exec()) {
+        return false;
+    }
+
+    *readCount = query.numRowsAffected();
+    return true;
+}
+
 } // namespace Backend::Models

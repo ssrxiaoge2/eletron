@@ -22,6 +22,7 @@ public:
                               int type,
                               qint64* messageId,
                               QString* createdAt);
+    static bool markConversationRead(qint64 userId, qint64 targetUserId, int* readCount);
 };
 
 } // namespace Backend::Models

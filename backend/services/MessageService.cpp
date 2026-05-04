@@ -87,6 +87,29 @@ MessageResult MessageService::sendMessage(const QString& bearerToken,
     return result;
 }
 
+MessageResult MessageService::markRead(const QString& bearerToken, qint64 targetUserId) const
+{
+    qint64 userId = 0;
+    if (!authenticate(bearerToken, &userId)) {
+        return error(401, 1002, QStringLiteral("invalid or expired token"));
+    }
+    if (targetUserId <= 0 || targetUserId == userId) {
+        return error(400, 1000, QStringLiteral("invalid targetUserId"));
+    }
+
+    int readCount = 0;
+    if (!Models::MessageModel::markConversationRead(userId, targetUserId, &readCount)) {
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
+    MessageResult result;
+    result.data = QJsonObject {
+        { QStringLiteral("targetUserId"), targetUserId },
+        { QStringLiteral("readCount"), readCount }
+    };
+    return result;
+}
+
 MessageResult MessageService::error(int httpStatus, int code, const QString& message)
 {
     MessageResult result;

@@ -2,6 +2,7 @@
 
 ## 2026-05-01
 
+- 新增 `POST /api/v1/messages/read` 和 `POST /api/v1/conversations/read`，支持持久化清除会话未读红点。
 - 新增 `conversations` 表，使用 `(user_id, target_user_id)` 唯一约束保证 `POST /api/v1/conversations` 不产生重复会话。
 - 新增 `POST /api/v1/user/avatar`，支持 base64 头像上传，保存文件后返回头像 URL 并更新 `users.avatar`。
 - 修复 `GET /api/v1/user/profile` 响应缺少 `email` 字段的问题，并在资料更新接口中保留 `email` 兼容。
