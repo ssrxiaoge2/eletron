@@ -28,8 +28,10 @@ class ChatListWidget : public QWidget {
                        const QString &last_message_time, int unread_count,
                        bool is_online);
   void ClearUnreadBadge(QListWidgetItem *item);
+  void MarkConversationRead(int target_user_id);
   QString FormatTime(const QString &raw_time) const;
 
   QListWidget *session_list_;
   QSet<int> read_conversation_ids_;
+  QSet<int> read_request_pending_ids_;
 };

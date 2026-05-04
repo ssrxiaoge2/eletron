@@ -239,6 +239,7 @@ void ChatListWidget::AddConversation(int target_user_id,
 void ChatListWidget::ClearUnreadBadge(QListWidgetItem *item) {
   const int target_user_id = item->data(kTargetUserIdRole).toInt();
   read_conversation_ids_.insert(target_user_id);
+  MarkConversationRead(target_user_id);
   const QString target_username = item->data(Qt::DisplayRole).toString();
   const QString last_message = item->data(kLastMessageRole).toString();
   const QString last_message_time = item->data(kLastMessageTimeRole).toString();
@@ -256,6 +257,31 @@ void ChatListWidget::ClearUnreadBadge(QListWidgetItem *item) {
   item->setData(kLastMessageRole, last_message);
   item->setData(kLastMessageTimeRole, last_message_time);
   session_list_->setItemWidget(item, widget);
+}
+
+void ChatListWidget::MarkConversationRead(int target_user_id) {
+  if (target_user_id <= 0 || read_request_pending_ids_.contains(target_user_id)) {
+    return;
+  }
+
+  read_request_pending_ids_.insert(target_user_id);
+  QJsonObject body;
+  body.insert("targetUserId", target_user_id);
+  ApiClient::instance()->post(
+      "/api/v1/conversations/read", body, this,
+      [this, target_user_id](const QJsonObject &) {
+        read_request_pending_ids_.remove(target_user_id);
+      },
+      [this, target_user_id, body]() {
+        ApiClient::instance()->post(
+            "/api/v1/messages/read", body, this,
+            [this, target_user_id](const QJsonObject &) {
+              read_request_pending_ids_.remove(target_user_id);
+            },
+            [this, target_user_id]() {
+              read_request_pending_ids_.remove(target_user_id);
+            });
+      });
 }
 
 QString ChatListWidget::FormatTime(const QString &raw_time) const {
