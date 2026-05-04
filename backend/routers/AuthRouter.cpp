@@ -10,6 +10,15 @@
 namespace Backend::Routers {
 namespace {
 
+QString authorizationHeader(const QHttpServerRequest& request)
+{
+    auto value = request.value(QByteArrayLiteral("Authorization"));
+    if (value.isEmpty()) {
+        value = request.value(QByteArrayLiteral("authorization"));
+    }
+    return QString::fromUtf8(value);
+}
+
 QHttpServerResponse jsonResponse(const QJsonObject& payload, int statusCode)
 {
     return QHttpServerResponse(
@@ -100,6 +109,13 @@ void AuthRouter::registerRoutes(QHttpServer& server)
 
                      const Backend::Services::AuthService service;
                      return serviceResponse(service.login(credentials.username, credentials.password));
+                 });
+
+    server.route(QStringLiteral("/api/v1/auth/logout"),
+                 QHttpServerRequest::Method::Post,
+                 [](const QHttpServerRequest& request) {
+                     const Backend::Services::AuthService service;
+                     return serviceResponse(service.logout(authorizationHeader(request)));
                  });
 }
 

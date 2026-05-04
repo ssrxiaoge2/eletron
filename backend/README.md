@@ -160,6 +160,17 @@ Invoke-RestMethod `
 
 前端展示个人资料时可直接使用 `nickname`、`avatar`、`status`、`createdAt`、`gender`、`birthday`、`email`、`signature` 字段。
 
+登出并更新离线状态：
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8000/api/v1/auth/logout `
+  -Method Post `
+  -Headers $headers
+```
+
+登出接口会将当前 session 置为失效，并把当前用户 `users.status` 更新为 `0`。重复调用也返回成功，适合前端关闭窗口时静默调用。
+
 ## 上传头像
 
 前端当前可以继续通过 `PUT /api/v1/user/profile` 把 base64 写入 `avatar` 字段。若要改为文件 URL 模式，使用：

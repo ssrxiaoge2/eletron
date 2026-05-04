@@ -119,6 +119,68 @@ AuthResult AuthService::login(const QString& username, const QString& password) 
     return result;
 }
 
+AuthResult AuthService::logout(const QString& bearerToken) const
+{
+    AuthResult result;
+    result.httpStatus = 200;
+
+    const auto token = extractBearerToken(bearerToken);
+    if (token.isEmpty()) {
+        return result;
+    }
+
+    auto db = Core::Database::getConnection();
+    if (!db.isValid() || !db.isOpen()) {
+        return error(503, 2001, QStringLiteral("database_unavailable"));
+    }
+
+    QSqlQuery findQuery(db);
+    findQuery.prepare(QStringLiteral(
+        "SELECT user_id FROM sessions "
+        "WHERE token_hash = :token_hash "
+        "AND is_deleted = 0 "
+        "LIMIT 1"));
+    findQuery.bindValue(QStringLiteral(":token_hash"), Core::JwtHelper::sha256Hex(token));
+    if (!findQuery.exec()) {
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+    if (!findQuery.next()) {
+        return result;
+    }
+
+    const auto userId = findQuery.value(QStringLiteral("user_id")).toLongLong();
+    if (!db.transaction()) {
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
+    QSqlQuery sessionQuery(db);
+    sessionQuery.prepare(QStringLiteral(
+        "UPDATE sessions "
+        "SET is_deleted = 1, expired_at = UTC_TIMESTAMP() "
+        "WHERE token_hash = :token_hash"));
+    sessionQuery.bindValue(QStringLiteral(":token_hash"), Core::JwtHelper::sha256Hex(token));
+    if (!sessionQuery.exec()) {
+        db.rollback();
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
+    QSqlQuery statusQuery(db);
+    statusQuery.prepare(QStringLiteral(
+        "UPDATE users SET status = 0 WHERE id = :user_id AND is_deleted = 0"));
+    statusQuery.bindValue(QStringLiteral(":user_id"), userId);
+    if (!statusQuery.exec()) {
+        db.rollback();
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
+    if (!db.commit()) {
+        db.rollback();
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
+    return result;
+}
+
 AuthResult AuthService::error(int httpStatus, int code, const QString& message)
 {
     AuthResult result;
@@ -131,6 +193,16 @@ AuthResult AuthService::error(int httpStatus, int code, const QString& message)
 QString AuthService::hashPassword(const QString& password)
 {
     return Core::JwtHelper::sha256Hex(password);
+}
+
+QString AuthService::extractBearerToken(const QString& bearerToken)
+{
+    const auto trimmed = bearerToken.trimmed();
+    if (!trimmed.startsWith(QStringLiteral("Bearer "), Qt::CaseInsensitive)) {
+        return {};
+    }
+
+    return trimmed.mid(QStringLiteral("Bearer ").size()).trimmed();
 }
 
 } // namespace Backend::Services

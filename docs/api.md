@@ -9,6 +9,7 @@
 | GET | `/health` | 服务健康检查 |
 | POST | `/api/v1/auth/register` | 用户注册 |
 | POST | `/api/v1/auth/login` | 用户登录 |
+| POST | `/api/v1/auth/logout` | 用户登出 |
 | GET | `/api/v1/conversations` | 获取当前用户会话列表 |
 | POST | `/api/v1/conversations` | 点击好友发起聊天 |
 | GET | `/api/v1/messages` | 分页获取历史消息 |
@@ -114,6 +115,25 @@
 {
   "code": 1001,
   "message": "invalid username or password"
+}
+```
+
+## POST `/api/v1/auth/logout`
+
+Header:
+
+```http
+Authorization: Bearer {token}
+```
+
+行为：同一事务中将当前 session 失效，并把当前用户 `users.status` 更新为 `0`。接口支持重复调用；token 已失效或缺失时也返回成功，方便前端关闭窗口时静默调用。
+
+成功响应：HTTP `200`
+
+```json
+{
+  "code": 0,
+  "message": "ok"
 }
 ```
 
