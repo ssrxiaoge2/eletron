@@ -19,15 +19,6 @@ constexpr int kOnlineRole = Qt::UserRole + 2;
 constexpr int kLastMessageRole = Qt::UserRole + 3;
 constexpr int kLastMessageTimeRole = Qt::UserRole + 4;
 
-QString ConversationDisplayName(const QJsonObject &item) {
-  const QString nickname = item.value("targetNickname").toString(
-      item.value("nickname").toString());
-  if (!nickname.isEmpty()) {
-    return nickname;
-  }
-  return item.value("targetUsername").toString();
-}
-
 class SessionItemWidget : public QWidget {
  public:
   SessionItemWidget(const QString &name, const QString &time,
@@ -140,6 +131,25 @@ ChatListWidget::ChatListWidget(QWidget *parent) : QWidget(parent) {
 
 void ChatListWidget::loadConversations() {
   session_list_->clear();
+  friend_nickname_cache_.clear();
+  ApiClient::instance()->get(
+      "/api/v1/friends", this,
+      [this](const QJsonObject &response) {
+        const QJsonArray friends = response.value("data").toArray();
+        for (const QJsonValue &value : friends) {
+          const QJsonObject item = value.toObject();
+          const int user_id = item.value("userId").toInt();
+          const QString nickname = item.value("nickname").toString();
+          if (user_id > 0 && !nickname.isEmpty()) {
+            friend_nickname_cache_.insert(user_id, nickname);
+          }
+        }
+        FetchConversations();
+      },
+      [this]() { FetchConversations(); });
+}
+
+void ChatListWidget::FetchConversations() {
   ApiClient::instance()->get(
       "/api/v1/conversations", this,
       [this](const QJsonObject &response) {
@@ -157,7 +167,7 @@ void ChatListWidget::loadConversations() {
               read_conversation_ids_.contains(target_user_id)
                   ? 0
                   : item.value("unreadCount").toInt();
-          AddConversation(target_user_id, ConversationDisplayName(item),
+          AddConversation(target_user_id, DisplayNameForConversation(item),
                           item.value("lastMessage").toString(),
                           item.value("lastMessageTime").toString(),
                           unread_count, item.value("isOnline").toBool());
@@ -243,6 +253,22 @@ void ChatListWidget::AddConversation(int target_user_id,
   item->setSizeHint({300, 70});
   session_list_->addItem(item);
   session_list_->setItemWidget(item, widget);
+}
+
+QString ChatListWidget::DisplayNameForConversation(
+    const QJsonObject &item) const {
+  const int target_user_id = item.value("targetUserId").toInt();
+  const QString cached_nickname = friend_nickname_cache_.value(target_user_id);
+  if (!cached_nickname.isEmpty()) {
+    return cached_nickname;
+  }
+
+  const QString nickname = item.value("targetNickname").toString(
+      item.value("nickname").toString());
+  if (!nickname.isEmpty()) {
+    return nickname;
+  }
+  return item.value("targetUsername").toString();
 }
 
 void ChatListWidget::ClearUnreadBadge(QListWidgetItem *item) {

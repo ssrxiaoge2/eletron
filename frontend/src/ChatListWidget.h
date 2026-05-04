@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QtCore/QHash>
+#include <QtCore/QJsonObject>
 #include <QtCore/QSet>
 #include <QtWidgets/QWidget>
 
@@ -23,15 +25,18 @@ class ChatListWidget : public QWidget {
   void newConversationRequested();
 
  private:
+  void FetchConversations();
   void AddConversation(int target_user_id, const QString &target_username,
                        const QString &last_message,
                        const QString &last_message_time, int unread_count,
                        bool is_online);
+  QString DisplayNameForConversation(const QJsonObject &item) const;
   void ClearUnreadBadge(QListWidgetItem *item);
   void MarkConversationRead(int target_user_id);
   QString FormatTime(const QString &raw_time) const;
 
   QListWidget *session_list_;
+  QHash<int, QString> friend_nickname_cache_;
   QSet<int> read_conversation_ids_;
   QSet<int> read_request_pending_ids_;
 };
