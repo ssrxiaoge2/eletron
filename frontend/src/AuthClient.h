@@ -20,12 +20,14 @@ class AuthClient : public QObject {
   void loginSucceeded(const QString &username, const QString &nickname,
                       const QString &token);
   void loginFailed(const QString &message);
+  void quickLoginTokenExpired();
   void registerSucceeded(const QString &username, const QString &nickname,
                          const QString &token);
   void registerFailed(const QString &message);
 
  private:
   void HandleLoginReply(QNetworkReply *reply);
+  void HandleQuickLoginReply(QNetworkReply *reply, const QString &token);
   void HandleRegisterReply(QNetworkReply *reply);
 
   QNetworkAccessManager network_manager_;

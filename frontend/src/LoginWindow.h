@@ -27,6 +27,7 @@ class LoginWindow : public QWidget {
   void LoadCachedUsers();
   void SaveCachedUser(const QString &username, const QString &nickname,
                       const QString &token);
+  void RemoveCachedToken(const QString &username);
   void SyncCachedUser(int index);
   void SyncPasswordUser(int index);
   void SetAuthPending(bool pending);
@@ -46,4 +47,5 @@ class LoginWindow : public QWidget {
   QPushButton *cached_register_button_;
   QPushButton *register_button_;
   QPushButton *login_button_;
+  QString quick_login_username_;
 };

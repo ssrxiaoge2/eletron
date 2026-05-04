@@ -258,14 +258,22 @@ LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent) {
   connect(auth_client_, &AuthClient::loginSucceeded, this,
           [this](const QString &username, const QString &nickname,
                  const QString &token) {
+            quick_login_username_.clear();
             const QString cached_username =
                 username.isEmpty() ? CurrentUsername() : username;
             SaveCachedUser(cached_username, nickname, token);
             SetAuthPending(false);
             emit loginSucceeded();
           });
+  connect(auth_client_, &AuthClient::quickLoginTokenExpired, this, [this]() {
+    RemoveCachedToken(quick_login_username_);
+    username_combo_->setCurrentText(quick_login_username_);
+    password_edit_->clear();
+    ShowPasswordLogin();
+  });
   connect(auth_client_, &AuthClient::loginFailed, this,
           [this](const QString &message) {
+            quick_login_username_.clear();
             SetAuthPending(false);
             QMessageBox::warning(this, TextLoginFailed(), message);
           });
@@ -311,6 +319,7 @@ void LoginWindow::HandleCachedLogin() {
     return;
   }
 
+  quick_login_username_ = username;
   username_combo_->setCurrentText(username);
   password_edit_->clear();
   SetAuthPending(true);
@@ -402,6 +411,19 @@ void LoginWindow::SaveCachedUser(const QString &username,
   if (username_combo_->findData(username) < 0) {
     username_combo_->addItem(username, username);
   }
+}
+
+void LoginWindow::RemoveCachedToken(const QString &username) {
+  if (username.isEmpty()) {
+    return;
+  }
+
+  QSettings settings(kSettingsOrg, kSettingsApp);
+  settings.beginGroup(kCachedUsersGroup);
+  settings.beginGroup(username);
+  settings.remove(kTokenKey);
+  settings.endGroup();
+  settings.endGroup();
 }
 
 void LoginWindow::SyncCachedUser(int index) {

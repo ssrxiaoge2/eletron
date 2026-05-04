@@ -12,6 +12,7 @@ namespace {
 
 constexpr char kLoginUrl[] = "http://127.0.0.1:8000/api/v1/auth/login";
 constexpr char kRegisterUrl[] = "http://127.0.0.1:8000/api/v1/auth/register";
+constexpr char kProfileUrl[] = "http://127.0.0.1:8000/api/v1/user/profile";
 
 bool IsDatabaseError(int code, const QString &message) {
   return code == 2001 || code == 2002 || message == "database_unavailable" ||
@@ -39,6 +40,14 @@ bool IsAlreadyLoggedInError(int status_code, int code,
          lower_message.contains("already online") ||
          lower_message.contains("user online") ||
          message.contains(QStringLiteral("\u5df2\u767b\u5f55"));
+}
+
+bool IsInvalidTokenError(int status_code, int code, const QString &message) {
+  const QString lower_message = message.toLower();
+  return status_code == 401 || status_code == 403 || code == 1002 ||
+         lower_message.contains("invalid or expired token") ||
+         lower_message.contains("invalid token") ||
+         lower_message.contains("expired token");
 }
 
 QString SessionErrorMessage() {
@@ -87,14 +96,12 @@ void AuthClient::Login(const QString &username, const QString &password) {
 
 void AuthClient::QuickLogin(const QString &token) {
   ApiClient::instance()->setToken(token);
-  ApiClient::instance()->get(
-      "/api/v1/user/profile", this,
-      [this, token](const QJsonObject &response) {
-        const QJsonObject data = ResponseData(response);
-        emit loginSucceeded(data.value("username").toString(),
-                            data.value("nickname").toString(), token);
-      },
-      [this]() { emit loginFailed(SessionErrorMessage()); });
+
+  QNetworkRequest request{QUrl(kProfileUrl)};
+  request.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+  QNetworkReply *reply = network_manager_.get(request);
+  connect(reply, &QNetworkReply::finished, this,
+          [this, reply, token]() { HandleQuickLoginReply(reply, token); });
 }
 
 void AuthClient::Register(const QString &nickname, const QString &username,
@@ -159,6 +166,32 @@ void AuthClient::HandleLoginReply(QNetworkReply *reply) {
   }
 
   emit loginFailed(CredentialErrorMessage());
+}
+
+void AuthClient::HandleQuickLoginReply(QNetworkReply *reply,
+                                       const QString &token) {
+  const auto cleanup = qScopeGuard([reply]() { reply->deleteLater(); });
+
+  const int status_code =
+      reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+  const QByteArray response_body = reply->readAll();
+  const QJsonDocument document = QJsonDocument::fromJson(response_body);
+  const QJsonObject object = document.object();
+  const int code = ResponseCode(object);
+  const QString message = ResponseMessage(object);
+
+  if (reply->error() == QNetworkReply::NoError && code == 0) {
+    const QJsonObject data = ResponseData(object);
+    emit loginSucceeded(data.value("username").toString(),
+                        data.value("nickname").toString(), token);
+    return;
+  }
+
+  if (IsInvalidTokenError(status_code, code, message)) {
+    ApiClient::instance()->setToken(QString());
+    emit quickLoginTokenExpired();
+  }
+  emit loginFailed(SessionErrorMessage());
 }
 
 void AuthClient::HandleRegisterReply(QNetworkReply *reply) {
