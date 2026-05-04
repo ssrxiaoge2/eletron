@@ -1,10 +1,12 @@
 #pragma once
 
 #include <QtCore/QPoint>
+#include <QtCore/QPointer>
 #include <QtWidgets/QWidget>
 
 class QMouseEvent;
 class QLabel;
+class ProfileDialog;
 class QToolButton;
 
 class TitleBar : public QWidget {
@@ -33,6 +35,7 @@ class TitleBar : public QWidget {
   void ToggleMaximized();
   void UpdateMaximizeButton();
   void ShowProfileDialog();
+  void MoveProfileDialog();
 
   bool dragging_ = false;
   QPoint drag_pos_;
@@ -48,5 +51,6 @@ class TitleBar : public QWidget {
   QLabel *brand_label_;
   QLabel *nickname_label_;
   QLabel *signature_label_;
+  QPointer<ProfileDialog> profile_dialog_;
   QToolButton *maximize_button_;
 };

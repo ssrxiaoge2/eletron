@@ -5,7 +5,6 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonObject>
-#include <QtCore/QSet>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
@@ -145,12 +144,14 @@ void ChatListWidget::loadConversations() {
             continue;
           }
           rendered_user_ids.insert(target_user_id);
-          AddConversation(target_user_id,
-                          item.value("targetUsername").toString(),
+          const int unread_count =
+              read_conversation_ids_.contains(target_user_id)
+                  ? 0
+                  : item.value("unreadCount").toInt();
+          AddConversation(target_user_id, item.value("targetUsername").toString(),
                           item.value("lastMessage").toString(),
                           item.value("lastMessageTime").toString(),
-                          item.value("unreadCount").toInt(),
-                          item.value("isOnline").toBool());
+                          unread_count, item.value("isOnline").toBool());
         }
       });
 }
@@ -200,6 +201,27 @@ void ChatListWidget::AddConversation(int target_user_id,
                                      const QString &last_message,
                                      const QString &last_message_time,
                                      int unread_count, bool is_online) {
+  for (int i = 0; i < session_list_->count(); ++i) {
+    QListWidgetItem *existing_item = session_list_->item(i);
+    if (existing_item->data(kTargetUserIdRole).toInt() != target_user_id) {
+      continue;
+    }
+    QWidget *old_widget = session_list_->itemWidget(existing_item);
+    session_list_->removeItemWidget(existing_item);
+    if (old_widget != nullptr) {
+      old_widget->deleteLater();
+    }
+    auto *widget = new SessionItemWidget(
+        target_username, FormatTime(last_message_time), last_message,
+        unread_count, is_online, session_list_);
+    existing_item->setData(Qt::DisplayRole, target_username);
+    existing_item->setData(kOnlineRole, is_online);
+    existing_item->setData(kLastMessageRole, last_message);
+    existing_item->setData(kLastMessageTimeRole, last_message_time);
+    session_list_->setItemWidget(existing_item, widget);
+    return;
+  }
+
   auto *item = new QListWidgetItem();
   auto *widget = new SessionItemWidget(
       target_username, FormatTime(last_message_time), last_message,
@@ -216,6 +238,7 @@ void ChatListWidget::AddConversation(int target_user_id,
 
 void ChatListWidget::ClearUnreadBadge(QListWidgetItem *item) {
   const int target_user_id = item->data(kTargetUserIdRole).toInt();
+  read_conversation_ids_.insert(target_user_id);
   const QString target_username = item->data(Qt::DisplayRole).toString();
   const QString last_message = item->data(kLastMessageRole).toString();
   const QString last_message_time = item->data(kLastMessageTimeRole).toString();

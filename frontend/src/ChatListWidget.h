@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtCore/QSet>
 #include <QtWidgets/QWidget>
 
 class QListWidget;
@@ -30,4 +31,5 @@ class ChatListWidget : public QWidget {
   QString FormatTime(const QString &raw_time) const;
 
   QListWidget *session_list_;
+  QSet<int> read_conversation_ids_;
 };

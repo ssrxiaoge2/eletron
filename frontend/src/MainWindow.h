@@ -15,6 +15,7 @@ class MainWindow : public QMainWindow {
 
  public:
   explicit MainWindow(QWidget *parent = nullptr);
+  void initializeSession();
 
  private:
   void LoadStyleSheet();
@@ -25,6 +26,7 @@ class MainWindow : public QMainWindow {
   void RefreshFriendRequests();
   void SwitchMiddlePanel(int index);
 
+  bool session_initialized_ = false;
   TitleBar *title_bar_;
   NavBar *nav_bar_;
   ChatListWidget *chat_list_widget_;

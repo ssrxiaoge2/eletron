@@ -10,6 +10,7 @@ int main(int argc, char *argv[]) {
   MainWindow main_window;
 
   QObject::connect(&login_window, &LoginWindow::loginSucceeded, [&]() {
+    main_window.initializeSession();
     main_window.show();
     login_window.close();
   });

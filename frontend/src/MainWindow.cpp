@@ -75,12 +75,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   connect(request_timer_, &QTimer::timeout, this,
           &MainWindow::RefreshFriendRequests);
 
-  LoadProfile();
   nav_bar_->setCurrentIndex(0);
   middle_stack_->setCurrentIndex(0);
-  chat_list_widget_->loadConversations();
-  friend_list_widget_->loadRequests();
-  request_timer_->start(30000);
 }
 
 void MainWindow::LoadStyleSheet() {
@@ -108,6 +104,16 @@ void MainWindow::LoadProfile() {
                              });
 }
 
+void MainWindow::initializeSession() {
+  session_initialized_ = true;
+  nav_bar_->setCurrentIndex(0);
+  middle_stack_->setCurrentIndex(0);
+  LoadProfile();
+  chat_list_widget_->loadConversations();
+  friend_list_widget_->loadRequests();
+  request_timer_->start(30000);
+}
+
 void MainWindow::OpenAddFriendDialog() {
   AddFriendDialog dialog(this);
   connect(&dialog, &AddFriendDialog::friendsChanged, friend_list_widget_,
@@ -124,7 +130,7 @@ void MainWindow::OpenConversation(int target_user_id,
     return;
   }
 
-  SwitchMiddlePanel(0);
+  middle_stack_->setCurrentIndex(0);
   nav_bar_->setCurrentIndex(0);
   if (chat_list_widget_->activateConversation(target_user_id)) {
     return;
@@ -156,6 +162,10 @@ void MainWindow::RefreshFriendRequests() {
 }
 
 void MainWindow::SwitchMiddlePanel(int index) {
+  if (!session_initialized_) {
+    middle_stack_->setCurrentIndex(index);
+    return;
+  }
   if (index == 1) {
     friend_list_widget_->loadFriends();
     friend_list_widget_->loadRequests();

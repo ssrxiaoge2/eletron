@@ -130,6 +130,7 @@ void TitleBar::mousePressEvent(QMouseEvent *event) {
 void TitleBar::mouseMoveEvent(QMouseEvent *event) {
   if (dragging_ && !window()->isMaximized()) {
     window()->move(event->globalPosition().toPoint() - drag_pos_);
+    MoveProfileDialog();
   }
 }
 
@@ -175,6 +176,10 @@ void TitleBar::ShowProfileDialog() {
         auto *dialog = new ProfileDialog(
             username_, nickname_, signature_, avatar_, gender_, birthday_,
             created_at_, email_, this);
+        if (!profile_dialog_.isNull()) {
+          profile_dialog_->close();
+        }
+        profile_dialog_ = dialog;
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         connect(dialog, &ProfileDialog::profileUpdated, this,
                 [this](const QString &nickname, const QString &signature,
@@ -184,8 +189,15 @@ void TitleBar::ShowProfileDialog() {
                               birthday, created_at_, email);
                   emit profileUpdated(nickname, signature);
                 });
-        dialog->move(
-            avatar_label_->mapToGlobal(avatar_label_->rect().bottomLeft()));
+        MoveProfileDialog();
         dialog->show();
       });
+}
+
+void TitleBar::MoveProfileDialog() {
+  if (profile_dialog_.isNull()) {
+    return;
+  }
+  profile_dialog_->move(
+      avatar_label_->mapToGlobal(avatar_label_->rect().bottomLeft()));
 }
