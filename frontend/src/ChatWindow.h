@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtCore/QList>
 #include <QtCore/QSet>
 #include <QtCore/QString>
 #include <QtWidgets/QWidget>
@@ -7,7 +8,9 @@
 class QJsonObject;
 class QScrollArea;
 class QLabel;
+class MessageBubble;
 class QPushButton;
+class QResizeEvent;
 class QTextEdit;
 class QTimer;
 class QVBoxLayout;
@@ -27,6 +30,9 @@ signals:
   void messageReceived(int target_user_id, const QString &content,
                        const QString &created_at);
 
+ protected:
+  void resizeEvent(QResizeEvent *event) override;
+
  private:
   QWidget *CreateTitleBar();
   QWidget *CreateMessageArea();
@@ -41,6 +47,8 @@ signals:
   void RefreshCurrentMessages();
   void ScrollToBottom();
   QString FormatTime(const QString &raw_time) const;
+  int MaxBubbleWidth() const;
+  void UpdateBubbleWidths();
 
   int current_target_user_id_ = 0;
   QString current_target_username_;
@@ -51,6 +59,7 @@ signals:
   QLabel *name_label_;
   QLabel *online_dot_;
   QTimer *message_refresh_timer_;
+  QList<MessageBubble *> bubbles_;
   QSet<QString> rendered_message_keys_;
   QString last_rendered_minute_;
   bool message_request_pending_ = false;

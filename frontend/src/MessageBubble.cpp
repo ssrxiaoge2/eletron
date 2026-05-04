@@ -1,6 +1,5 @@
 #include "MessageBubble.h"
 
-#include <QtCore/QtGlobal>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QSizePolicy>
@@ -15,7 +14,9 @@ MessageBubble::MessageBubble(const QString &text, bool sent_by_me,
   bubble_ = new QLabel(text, this);
 
   setObjectName(sent_by_me ? "sentMessageRow" : "receivedMessageRow");
-  setAttribute(Qt::WA_StyledBackground, true);
+  setAttribute(Qt::WA_TranslucentBackground, true);
+  setStyleSheet(QStringLiteral("QWidget#%1 { background: transparent; }")
+                    .arg(objectName()));
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
   avatar->setObjectName("messageAvatar");
   bubble_->setObjectName(sent_by_me ? "sentBubble" : "receivedBubble");
@@ -39,7 +40,6 @@ MessageBubble::MessageBubble(const QString &text, bool sent_by_me,
   }
 }
 
-void MessageBubble::resizeEvent(QResizeEvent *event) {
-  QWidget::resizeEvent(event);
-  bubble_->setMaximumWidth(qMax(160, width() * 3 / 5));
+void MessageBubble::setMaxBubbleWidth(int max_width) {
+  bubble_->setMaximumWidth(max_width);
 }

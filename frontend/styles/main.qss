@@ -354,25 +354,35 @@ QWidget#messageContainer {
 
 QWidget#sentMessageRow,
 QWidget#receivedMessageRow {
-  background: #ffffff;
+  background: transparent;
   border: 0;
 }
 
-QLabel#messageTimestamp {
-  background: #ffffff;
-  color: #111111;
+QWidget#timestampRow {
+  background: transparent;
+  border: 0;
+}
+
+QLabel#timestampLabel {
+  background: transparent;
+  color: #999999;
   font-size: 12px;
-  min-height: 24px;
-  padding: 4px 0;
   border: 0;
 }
 
-QLabel#sentBubble,
-QLabel#receivedBubble {
+QLabel#sentBubble {
   background: #1d6fa4;
-  color: #000000;
+  color: #ffffff;
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+QLabel#receivedBubble {
+  background: #4a90d9;
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 8px 12px;
   font-size: 14px;
 }
 

@@ -7,6 +7,8 @@
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonObject>
 #include <QtCore/QTimer>
+#include <QtCore/QtGlobal>
+#include <QtGui/QResizeEvent>
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
@@ -14,6 +16,7 @@
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QScrollArea>
 #include <QtWidgets/QScrollBar>
+#include <QtWidgets/QSizePolicy>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QToolButton>
@@ -44,6 +47,7 @@ QString OnlineDotStyle(bool is_online) {
 
 ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
   setObjectName("chatWindow");
+  setMinimumWidth(300);
 
   auto *root_layout = new QVBoxLayout(this);
   message_refresh_timer_ = new QTimer(this);
@@ -126,10 +130,16 @@ QWidget *ChatWindow::CreateMessageArea() {
   message_scroll_area_->setFrameShape(QFrame::NoFrame);
   message_scroll_area_->viewport()->setObjectName("messageViewport");
   message_scroll_area_->viewport()->setAttribute(Qt::WA_StyledBackground, true);
+  message_scroll_area_->setStyleSheet(
+      "QScrollArea { background: #ffffff; border: none; }");
+  message_scroll_area_->viewport()->setStyleSheet(
+      "QWidget#messageViewport { background-color: #ffffff; }");
   message_scroll_area_->setWidget(container);
 
   container->setObjectName("messageContainer");
   container->setAttribute(Qt::WA_StyledBackground, true);
+  container->setStyleSheet(
+      "QWidget#messageContainer { background-color: #ffffff; }");
   message_layout_->setContentsMargins(0, 12, 0, 16);
   message_layout_->setSpacing(2);
   message_layout_->addStretch();
@@ -182,16 +192,36 @@ QWidget *ChatWindow::CreateInputArea() {
 }
 
 void ChatWindow::AddTimestamp(const QString &time_text) {
-  auto *timestamp = new QLabel(time_text, this);
-  timestamp->setObjectName("messageTimestamp");
-  timestamp->setAttribute(Qt::WA_StyledBackground, true);
-  timestamp->setAlignment(Qt::AlignCenter);
-  message_layout_->insertWidget(message_layout_->count() - 1, timestamp);
+  auto *time_row = new QWidget(this);
+  auto *time_layout = new QHBoxLayout(time_row);
+  auto *timestamp = new QLabel(time_text, time_row);
+
+  time_row->setObjectName("timestampRow");
+  time_row->setAttribute(Qt::WA_TranslucentBackground, true);
+  time_row->setStyleSheet(
+      "QWidget#timestampRow { background: transparent; }");
+  time_row->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
+  timestamp->setObjectName("timestampLabel");
+  timestamp->setAttribute(Qt::WA_TranslucentBackground, true);
+  timestamp->setAlignment(Qt::AlignHCenter);
+  timestamp->setMinimumWidth(0);
+  timestamp->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
+  time_layout->setContentsMargins(0, 4, 0, 4);
+  time_layout->setSpacing(0);
+  time_layout->addStretch();
+  time_layout->addWidget(timestamp);
+  time_layout->addStretch();
+
+  message_layout_->insertWidget(message_layout_->count() - 1, time_row);
 }
 
 void ChatWindow::AddMessage(const QString &text, bool sent_by_me) {
-  message_layout_->insertWidget(message_layout_->count() - 1,
-                                new MessageBubble(text, sent_by_me, this));
+  auto *bubble = new MessageBubble(text, sent_by_me, this);
+  bubble->setMaxBubbleWidth(MaxBubbleWidth());
+  bubbles_.append(bubble);
+  message_layout_->insertWidget(message_layout_->count() - 1, bubble);
   ScrollToBottom();
 }
 
@@ -264,6 +294,7 @@ QString ChatWindow::MessageKey(const QJsonObject &message) const {
 }
 
 void ChatWindow::RemoveAllBubbles() {
+  bubbles_.clear();
   while (message_layout_->count() > 1) {
     QLayoutItem *item = message_layout_->takeAt(0);
     if (item->widget() != nullptr) {
@@ -319,6 +350,27 @@ void ChatWindow::ScrollToBottom() {
   QTimer::singleShot(0, this, scroll_to_bottom);
   QTimer::singleShot(50, this, scroll_to_bottom);
   QTimer::singleShot(150, this, scroll_to_bottom);
+}
+
+int ChatWindow::MaxBubbleWidth() const {
+  const int width = message_scroll_area_ == nullptr
+                        ? this->width()
+                        : message_scroll_area_->viewport()->width();
+  return qMax(160, width * 65 / 100);
+}
+
+void ChatWindow::UpdateBubbleWidths() {
+  const int max_width = MaxBubbleWidth();
+  for (MessageBubble *bubble : bubbles_) {
+    if (bubble != nullptr) {
+      bubble->setMaxBubbleWidth(max_width);
+    }
+  }
+}
+
+void ChatWindow::resizeEvent(QResizeEvent *event) {
+  QWidget::resizeEvent(event);
+  UpdateBubbleWidths();
 }
 
 QString ChatWindow::FormatTime(const QString &raw_time) const {

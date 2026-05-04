@@ -9,9 +9,7 @@ class MessageBubble : public QWidget {
 
  public:
   MessageBubble(const QString &text, bool sent_by_me, QWidget *parent = nullptr);
-
- protected:
-  void resizeEvent(QResizeEvent *event) override;
+  void setMaxBubbleWidth(int max_width);
 
  private:
   QLabel *bubble_;
