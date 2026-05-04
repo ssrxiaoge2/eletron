@@ -27,25 +27,23 @@ QString thumbnailUrl(qint64 fileId, const QString& thumbnailPath)
 
 } // namespace
 
-bool FileModel::insertFileWithMessage(const FileRecord& file,
-                                      qint64* fileId,
-                                      QString* createdAt)
+bool FileModel::insertFile(const FileRecord& file,
+                           qint64* fileId,
+                           QString* createdAt)
 {
     auto db = Core::Database::getConnection();
     if (!db.isValid() || !db.isOpen()) {
-        return false;
-    }
-    if (!db.transaction()) {
         return false;
     }
 
     QSqlQuery fileQuery(db);
     fileQuery.prepare(QStringLiteral(
         "INSERT INTO files "
-        "(uploader_id, receiver_id, file_name, stored_name, file_size, file_type, mime_type, storage_path, thumbnail_path) "
-        "VALUES (:uploader_id, :receiver_id, :file_name, :stored_name, :file_size, :file_type, :mime_type, :storage_path, :thumbnail_path)"));
+        "(uploader_id, receiver_id, group_id, file_name, stored_name, file_size, file_type, mime_type, storage_path, thumbnail_path) "
+        "VALUES (:uploader_id, :receiver_id, :group_id, :file_name, :stored_name, :file_size, :file_type, :mime_type, :storage_path, :thumbnail_path)"));
     fileQuery.bindValue(QStringLiteral(":uploader_id"), file.uploaderId);
     fileQuery.bindValue(QStringLiteral(":receiver_id"), file.receiverId);
+    fileQuery.bindValue(QStringLiteral(":group_id"), file.groupId <= 0 ? QVariant() : QVariant(file.groupId));
     fileQuery.bindValue(QStringLiteral(":file_name"), file.fileName);
     fileQuery.bindValue(QStringLiteral(":stored_name"), file.storedName);
     fileQuery.bindValue(QStringLiteral(":file_size"), file.fileSize);
@@ -54,33 +52,10 @@ bool FileModel::insertFileWithMessage(const FileRecord& file,
     fileQuery.bindValue(QStringLiteral(":storage_path"), file.storagePath);
     fileQuery.bindValue(QStringLiteral(":thumbnail_path"), file.thumbnailPath);
     if (!fileQuery.exec()) {
-        db.rollback();
         return false;
     }
 
     *fileId = fileQuery.lastInsertId().toLongLong();
-
-    const QJsonObject messageContent {
-        { QStringLiteral("fileId"), *fileId },
-        { QStringLiteral("fileName"), file.fileName },
-        { QStringLiteral("fileSize"), file.fileSize },
-        { QStringLiteral("url"), downloadUrl(*fileId) },
-        { QStringLiteral("thumbnailUrl"), thumbnailUrl(*fileId, file.thumbnailPath) }
-    };
-
-    QSqlQuery messageQuery(db);
-    messageQuery.prepare(QStringLiteral(
-        "INSERT INTO messages (sender_id, receiver_id, content, type) "
-        "VALUES (:sender_id, :receiver_id, :content, :type)"));
-    messageQuery.bindValue(QStringLiteral(":sender_id"), file.uploaderId);
-    messageQuery.bindValue(QStringLiteral(":receiver_id"), file.receiverId);
-    messageQuery.bindValue(QStringLiteral(":content"),
-                           QString::fromUtf8(QJsonDocument(messageContent).toJson(QJsonDocument::Compact)));
-    messageQuery.bindValue(QStringLiteral(":type"), file.fileType);
-    if (!messageQuery.exec()) {
-        db.rollback();
-        return false;
-    }
 
     QSqlQuery selectQuery(db);
     selectQuery.prepare(QStringLiteral(
@@ -88,15 +63,9 @@ bool FileModel::insertFileWithMessage(const FileRecord& file,
                             .arg(dateTimeExpression(QStringLiteral("created_at"))));
     selectQuery.bindValue(QStringLiteral(":id"), *fileId);
     if (!selectQuery.exec() || !selectQuery.next()) {
-        db.rollback();
         return false;
     }
     *createdAt = selectQuery.value(QStringLiteral("created_at")).toString();
-
-    if (!db.commit()) {
-        db.rollback();
-        return false;
-    }
 
     return true;
 }
@@ -110,7 +79,7 @@ bool FileModel::fetchFile(qint64 fileId, FileRecord* file)
 
     QSqlQuery query(db);
     query.prepare(QStringLiteral(
-        "SELECT id, uploader_id, receiver_id, file_name, stored_name, file_size, file_type, "
+        "SELECT id, uploader_id, receiver_id, group_id, file_name, stored_name, file_size, file_type, "
         "mime_type, storage_path, thumbnail_path, %1 AS created_at "
         "FROM files WHERE id = :id AND is_deleted = 0 LIMIT 1")
                       .arg(dateTimeExpression(QStringLiteral("created_at"))));
@@ -122,6 +91,7 @@ bool FileModel::fetchFile(qint64 fileId, FileRecord* file)
     file->id = query.value(QStringLiteral("id")).toLongLong();
     file->uploaderId = query.value(QStringLiteral("uploader_id")).toLongLong();
     file->receiverId = query.value(QStringLiteral("receiver_id")).toLongLong();
+    file->groupId = query.value(QStringLiteral("group_id")).toLongLong();
     file->fileName = query.value(QStringLiteral("file_name")).toString();
     file->storedName = query.value(QStringLiteral("stored_name")).toString();
     file->fileSize = query.value(QStringLiteral("file_size")).toLongLong();
@@ -144,6 +114,18 @@ bool FileModel::canAccess(qint64 fileId, qint64 userId, bool* result)
     return true;
 }
 
+QString FileModel::messageContentJson(const FileRecord& file, qint64 fileId)
+{
+    const QJsonObject messageContent {
+        { QStringLiteral("fileId"), fileId },
+        { QStringLiteral("fileName"), file.fileName },
+        { QStringLiteral("fileSize"), file.fileSize },
+        { QStringLiteral("url"), downloadUrl(fileId) },
+        { QStringLiteral("thumbnailUrl"), thumbnailUrl(fileId, file.thumbnailPath) }
+    };
+    return QString::fromUtf8(QJsonDocument(messageContent).toJson(QJsonDocument::Compact));
+}
+
 QJsonObject FileModel::toJson(const FileRecord& file, bool includeThumbnail)
 {
     QJsonObject data {
@@ -153,6 +135,7 @@ QJsonObject FileModel::toJson(const FileRecord& file, bool includeThumbnail)
         { QStringLiteral("fileType"), file.fileType },
         { QStringLiteral("mimeType"), file.mimeType },
         { QStringLiteral("uploaderUserId"), file.uploaderId },
+        { QStringLiteral("groupId"), file.groupId },
         { QStringLiteral("url"), downloadUrl(file.id) },
         { QStringLiteral("createdAt"), file.createdAt }
     };

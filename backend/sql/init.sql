@@ -6,6 +6,9 @@ USE im_app;
 
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS group_messages;
+DROP TABLE IF EXISTS group_members;
+DROP TABLE IF EXISTS `groups`;
 DROP TABLE IF EXISTS files;
 DROP TABLE IF EXISTS messages;
 DROP TABLE IF EXISTS conversations;
@@ -44,10 +47,56 @@ CREATE TABLE friendships (
   CONSTRAINT fk_friendships_friend_id FOREIGN KEY (friend_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `groups` (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(64) NOT NULL COMMENT 'group name',
+  owner_id BIGINT UNSIGNED NOT NULL COMMENT 'owner user id',
+  announcement TEXT COMMENT 'group announcement',
+  member_count INT UNSIGNED DEFAULT 0 COMMENT 'current member count',
+  max_member INT UNSIGNED DEFAULT 100 COMMENT 'member limit',
+  avatar VARCHAR(512) DEFAULT '' COMMENT 'group avatar',
+  is_dissolved TINYINT(1) DEFAULT 0 COMMENT 'is dissolved',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_owner(owner_id),
+  CONSTRAINT fk_groups_owner_id FOREIGN KEY (owner_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE group_members (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  group_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  role TINYINT DEFAULT 0 COMMENT '0 member 1 admin 2 owner',
+  is_muted TINYINT(1) DEFAULT 0 COMMENT 'is muted',
+  mute_until DATETIME DEFAULT NULL COMMENT 'mute until',
+  joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  is_deleted TINYINT(1) DEFAULT 0 COMMENT 'left group',
+  UNIQUE KEY uk_group_user(group_id, user_id),
+  INDEX idx_group(group_id),
+  INDEX idx_user(user_id),
+  CONSTRAINT fk_group_members_group_id FOREIGN KEY (group_id) REFERENCES `groups`(id),
+  CONSTRAINT fk_group_members_user_id FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE group_messages (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  group_id BIGINT UNSIGNED NOT NULL,
+  sender_id BIGINT UNSIGNED NOT NULL,
+  content TEXT NOT NULL,
+  type TINYINT DEFAULT 0 COMMENT '0 text 1 image 2 file',
+  is_deleted TINYINT(1) DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_group_time(group_id, created_at),
+  INDEX idx_sender(sender_id),
+  CONSTRAINT fk_group_messages_group_id FOREIGN KEY (group_id) REFERENCES `groups`(id),
+  CONSTRAINT fk_group_messages_sender_id FOREIGN KEY (sender_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE files (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   uploader_id BIGINT UNSIGNED NOT NULL,
   receiver_id BIGINT UNSIGNED NOT NULL,
+  group_id BIGINT UNSIGNED DEFAULT NULL,
   file_name VARCHAR(256) NOT NULL COMMENT 'original file name',
   stored_name VARCHAR(256) NOT NULL COMMENT 'server stored name',
   file_size BIGINT UNSIGNED NOT NULL COMMENT 'bytes',
@@ -60,8 +109,10 @@ CREATE TABLE files (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_files_uploader (uploader_id),
   KEY idx_files_receiver (receiver_id),
+  KEY idx_files_group (group_id),
   CONSTRAINT fk_files_uploader_id FOREIGN KEY (uploader_id) REFERENCES users(id),
-  CONSTRAINT fk_files_receiver_id FOREIGN KEY (receiver_id) REFERENCES users(id)
+  CONSTRAINT fk_files_receiver_id FOREIGN KEY (receiver_id) REFERENCES users(id),
+  CONSTRAINT fk_files_group_id FOREIGN KEY (group_id) REFERENCES `groups`(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE messages (

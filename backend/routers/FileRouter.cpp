@@ -19,6 +19,7 @@ struct UploadForm {
     Services::UploadedFilePart file;
     int type = 0;
     qint64 receiverId = 0;
+    qint64 groupId = 0;
 };
 
 QString authorizationHeader(const QHttpServerRequest& request)
@@ -152,13 +153,15 @@ UploadForm parseMultipart(const QHttpServerRequest& request)
             form.type = QString::fromUtf8(data).trimmed().toInt();
         } else if (partName == QStringLiteral("receiverId")) {
             form.receiverId = QString::fromUtf8(data).trimmed().toLongLong();
+        } else if (partName == QStringLiteral("groupId")) {
+            form.groupId = QString::fromUtf8(data).trimmed().toLongLong();
         }
     }
 
     form.ok = !form.file.bytes.isEmpty()
         && !form.file.fileName.trimmed().isEmpty()
         && (form.type == 1 || form.type == 2)
-        && form.receiverId > 0;
+        && (form.groupId > 0 || form.receiverId > 0);
     return form;
 }
 
@@ -207,7 +210,8 @@ void FileRouter::registerRoutes(QHttpServer& server)
                          authorizationHeader(request),
                          form.file,
                          form.type,
-                         form.receiverId));
+                         form.receiverId,
+                         form.groupId));
                  });
 
     server.route(QStringLiteral("/api/v1/files/download/<arg>"),

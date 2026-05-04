@@ -30,6 +30,20 @@
 | GET | `/api/v1/files/thumbnail/{fileId}` | 获取图片缩略图 |
 | GET | `/api/v1/files/info/{fileId}` | 获取文件信息 |
 
+| POST | `/api/v1/groups` | 创建群聊 |
+| GET | `/api/v1/groups` | 获取我加入的群列表 |
+| GET | `/api/v1/groups/{groupId}` | 获取群信息 |
+| DELETE | `/api/v1/groups/{groupId}` | 解散群聊 |
+| PUT | `/api/v1/groups/{groupId}/name` | 修改群名称 |
+| PUT | `/api/v1/groups/{groupId}/announcement` | 发布群公告 |
+| GET | `/api/v1/groups/{groupId}/members` | 获取群成员列表 |
+| PUT | `/api/v1/groups/{groupId}/members/{userId}/role` | 设置或取消管理员 |
+| DELETE | `/api/v1/groups/{groupId}/members/{userId}` | 踢出成员 |
+| PUT | `/api/v1/groups/{groupId}/members/{userId}/mute` | 禁言成员 |
+| DELETE | `/api/v1/groups/{groupId}/members/self` | 退出群聊 |
+| POST | `/api/v1/groups/{groupId}/messages` | 发送群消息 |
+| GET | `/api/v1/groups/{groupId}/messages` | 获取群历史消息 |
+
 ## Response Envelope
 
 业务接口统一返回：
@@ -634,6 +648,7 @@ Content-Type: multipart/form-data
 | file | 文件二进制内容 |
 | type | `1` 图片，`2` 普通文件 |
 | receiverId | 接收方用户 ID |
+| groupId | 群组 ID。传值时表示群文件或群图片上传，此时 `receiverId` 可不传或传 `0` |
 
 成功响应：HTTP `200`。上传成功后，后端会自动写入一条 `messages` 记录：图片消息 `type=1`，普通文件消息 `type=2`，`content` 为文件 JSON 字符串。
 
@@ -787,3 +802,207 @@ Authorization: Bearer {token}
 ```
 
 后端使用 `conversations` 表维护会话记录，并通过 `(user_id, target_user_id)` 唯一约束避免重复会话。重复调用会返回同一条会话记录。
+## POST `/api/v1/groups`
+
+Header:
+
+```http
+Authorization: Bearer {token}
+```
+
+请求体：
+
+```json
+{
+  "name": "我的群",
+  "memberIds": [1002, 1003]
+}
+```
+
+成功响应：
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "groupId": 1,
+    "name": "我的群",
+    "memberCount": 3,
+    "createdAt": "2024-01-01 15:00:00"
+  }
+}
+```
+
+## GET `/api/v1/groups`
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": [
+    {
+      "groupId": 1,
+      "name": "我的群",
+      "avatar": "",
+      "lastMessage": "你好",
+      "lastMessageType": 0,
+      "lastMessageTime": "2024-01-01 15:00:00",
+      "unreadCount": 0,
+      "myRole": 2,
+      "memberCount": 3
+    }
+  ]
+}
+```
+
+## GET `/api/v1/groups/{groupId}`
+
+```json
+{
+  "code": 0,
+  "data": {
+    "groupId": 1,
+    "name": "我的群",
+    "ownerId": 1001,
+    "announcement": "群公告内容",
+    "memberCount": 3,
+    "maxMember": 100,
+    "avatar": "",
+    "createdAt": "2024-01-01"
+  }
+}
+```
+
+## DELETE `/api/v1/groups/{groupId}`
+
+仅群主可调用。成功返回：
+
+```json
+{
+  "code": 0,
+  "message": "ok"
+}
+```
+
+## PUT `/api/v1/groups/{groupId}/name`
+
+```json
+{
+  "name": "新群名"
+}
+```
+
+## PUT `/api/v1/groups/{groupId}/announcement`
+
+```json
+{
+  "announcement": "公告内容"
+}
+```
+
+## GET `/api/v1/groups/{groupId}/members`
+
+```json
+{
+  "code": 0,
+  "data": [
+    {
+      "userId": 1001,
+      "username": "user1",
+      "nickname": "测试用户",
+      "avatar": "",
+      "role": 2,
+      "isMuted": false,
+      "muteUntil": null,
+      "joinedAt": "2024-01-01"
+    }
+  ]
+}
+```
+
+## PUT `/api/v1/groups/{groupId}/members/{userId}/role`
+
+```json
+{
+  "role": 1
+}
+```
+
+## DELETE `/api/v1/groups/{groupId}/members/{userId}`
+
+群主可以踢除自己外的任何成员；管理员只能踢普通群员。
+
+## PUT `/api/v1/groups/{groupId}/members/{userId}/mute`
+
+```json
+{
+  "duration": 3600
+}
+```
+
+`duration = 0` 表示解除禁言。
+
+## DELETE `/api/v1/groups/{groupId}/members/self`
+
+群主不能退出群聊，应调用解散接口。错误码：`5004`。
+
+## POST `/api/v1/groups/{groupId}/messages`
+
+```json
+{
+  "content": "消息内容",
+  "type": 0
+}
+```
+
+禁言中返回：
+
+```json
+{
+  "code": 5005,
+  "message": "您已被禁言，禁言到期时间：2024-01-01 16:00:00",
+  "data": {
+    "muteUntil": "2024-01-01 16:00:00"
+  }
+}
+```
+
+## GET `/api/v1/groups/{groupId}/messages`
+
+```json
+{
+  "code": 0,
+  "data": {
+    "total": 100,
+    "page": 1,
+    "pageSize": 20,
+    "list": [
+      {
+        "messageId": 1,
+        "senderId": 1002,
+        "senderNickname": "东方-Askeai",
+        "senderAvatar": "",
+        "senderRole": 1,
+        "content": "你好",
+        "type": 0,
+        "createdAt": "2024-01-01 15:00:00",
+        "isSelf": false
+      }
+    ]
+  }
+}
+```
+
+## 群文件上传
+
+复用 `POST /api/v1/files/upload`。群聊场景新增表单字段 `groupId`，此时 `receiverId` 可不传或传 `0`。上传成功后会写入 `group_messages`，`content` 与私聊文件消息保持相同的文件 JSON 字符串结构。
+
+## Group Errors
+
+```json
+{ "code": 5001, "message": "target user is not your friend" }
+{ "code": 5002, "message": "group member limit exceeded" }
+{ "code": 5003, "message": "permission denied" }
+{ "code": 5004, "message": "group owner cannot leave group" }
+```

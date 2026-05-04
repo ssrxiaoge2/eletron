@@ -3,6 +3,7 @@
 #include "../routers/AuthRouter.h"
 #include "../routers/FileRouter.h"
 #include "../routers/FriendRouter.h"
+#include "../routers/GroupRouter.h"
 #include "../routers/MessageRouter.h"
 #include "../routers/UserRouter.h"
 
@@ -51,6 +52,7 @@ void HttpServer::registerRoutes()
     Backend::Routers::FriendRouter::registerRoutes(server_);
     Backend::Routers::UserRouter::registerRoutes(server_);
     Backend::Routers::FileRouter::registerRoutes(server_);
+    Backend::Routers::GroupRouter::registerRoutes(server_);
 }
 
 } // namespace Backend::Api

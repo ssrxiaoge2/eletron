@@ -34,7 +34,8 @@ public:
     FileResult upload(const QString& bearerToken,
                       const UploadedFilePart& file,
                       int type,
-                      qint64 receiverId) const;
+                      qint64 receiverId,
+                      qint64 groupId) const;
     FileBinaryResult download(const QString& bearerToken, qint64 fileId) const;
     FileBinaryResult thumbnail(const QString& bearerToken, qint64 fileId) const;
     FileResult info(const QString& bearerToken, qint64 fileId) const;

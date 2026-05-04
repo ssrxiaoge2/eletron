@@ -67,6 +67,7 @@
 | id | BIGINT UNSIGNED | 文件主键，自增 |
 | uploader_id | BIGINT UNSIGNED | 上传者用户 ID，外键到 `users.id` |
 | receiver_id | BIGINT UNSIGNED | 接收者用户 ID，外键到 `users.id` |
+| group_id | BIGINT UNSIGNED | 群组 ID，群文件时有值，私聊文件为空 |
 | file_name | VARCHAR(256) | 原始文件名 |
 | stored_name | VARCHAR(256) | 服务端 UUID 重命名后的文件名 |
 | file_size | BIGINT UNSIGNED | 文件字节数 |
@@ -78,7 +79,7 @@
 | created_at | DATETIME | 创建时间 |
 | updated_at | DATETIME | 更新时间 |
 
-索引：`idx_files_uploader`、`idx_files_receiver`。
+索引：`idx_files_uploader`、`idx_files_receiver`、`idx_files_group`。
 
 ## conversations
 
@@ -110,3 +111,54 @@
 | is_deleted | TINYINT(1) | 软删除标记 |
 
 索引：`idx_sessions_user_id`、`idx_sessions_expired_at`。
+## groups
+
+群组基础信息表。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | BIGINT UNSIGNED | 群组主键，自增 |
+| name | VARCHAR(64) | 群名称 |
+| owner_id | BIGINT UNSIGNED | 群主用户 ID |
+| announcement | TEXT | 群公告 |
+| member_count | INT UNSIGNED | 当前成员数 |
+| max_member | INT UNSIGNED | 最大成员数 |
+| avatar | VARCHAR(512) | 群头像 |
+| is_dissolved | TINYINT(1) | 是否已解散 |
+| created_at | DATETIME | 创建时间 |
+| updated_at | DATETIME | 更新时间 |
+
+索引：`idx_owner`。
+
+## group_members
+
+群成员关系表。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | BIGINT UNSIGNED | 主键，自增 |
+| group_id | BIGINT UNSIGNED | 群组 ID |
+| user_id | BIGINT UNSIGNED | 成员用户 ID |
+| role | TINYINT | 0 群员，1 管理员，2 群主 |
+| is_muted | TINYINT(1) | 是否禁言 |
+| mute_until | DATETIME | 禁言到期时间 |
+| joined_at | DATETIME | 入群时间 |
+| is_deleted | TINYINT(1) | 是否退出群聊 |
+
+索引：`uk_group_user`、`idx_group`、`idx_user`。
+
+## group_messages
+
+群消息表。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | BIGINT UNSIGNED | 主键，自增 |
+| group_id | BIGINT UNSIGNED | 群组 ID |
+| sender_id | BIGINT UNSIGNED | 发送者用户 ID |
+| content | TEXT | 消息内容 |
+| type | TINYINT | 0 文字，1 图片，2 文件 |
+| is_deleted | TINYINT(1) | 软删除标记 |
+| created_at | DATETIME | 创建时间 |
+
+索引：`idx_group_time`、`idx_sender`。

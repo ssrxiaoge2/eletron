@@ -1,7 +1,10 @@
 #include "FileService.h"
 
+#include "../core/Database.h"
 #include "../core/FileHelper.h"
 #include "../models/FileModel.h"
+#include "../models/GroupMessageModel.h"
+#include "../models/GroupModel.h"
 #include "../models/MessageModel.h"
 
 #include <QBuffer>
@@ -10,7 +13,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QImage>
-#include <QJsonObject>
 #include <QMimeDatabase>
 
 namespace Backend::Services {
@@ -48,30 +50,54 @@ QString imageMimeTypeByPath(const QString& path)
     return QStringLiteral("image/png");
 }
 
+bool canAccessFile(const Models::FileRecord& file, qint64 userId, bool* result)
+{
+    *result = file.uploaderId == userId || file.receiverId == userId;
+    if (*result || file.groupId <= 0) {
+        return true;
+    }
+    return Models::GroupModel::isActiveMember(file.groupId, userId, result);
+}
+
 } // namespace
 
 FileResult FileService::upload(const QString& bearerToken,
                                const UploadedFilePart& file,
                                int type,
-                               qint64 receiverId) const
+                               qint64 receiverId,
+                               qint64 groupId) const
 {
     qint64 userId = 0;
     if (!authenticate(bearerToken, &userId)) {
         return error(401, 1002, QStringLiteral("invalid or expired token"));
     }
-    if (receiverId <= 0 || receiverId == userId || file.bytes.isEmpty() || file.fileName.trimmed().isEmpty()) {
+    if (file.bytes.isEmpty() || file.fileName.trimmed().isEmpty()) {
         return error(400, 1000, QStringLiteral("invalid upload payload"));
     }
     if (type != 1 && type != 2) {
         return error(400, 4003, QStringLiteral("unsupported file type"));
     }
 
-    bool areFriends = false;
-    if (!Models::MessageModel::areFriends(userId, receiverId, &areFriends)) {
-        return error(503, 2002, QStringLiteral("database_error"));
-    }
-    if (!areFriends) {
-        return error(403, 3001, QStringLiteral("receiver is not your friend"));
+    if (groupId > 0) {
+        bool isMember = false;
+        if (!Models::GroupModel::isActiveMember(groupId, userId, &isMember)) {
+            return error(503, 2002, QStringLiteral("database_error"));
+        }
+        if (!isMember) {
+            return error(403, 5003, QStringLiteral("permission denied"));
+        }
+        receiverId = 0;
+    } else {
+        if (receiverId <= 0 || receiverId == userId) {
+            return error(400, 1000, QStringLiteral("invalid upload payload"));
+        }
+        bool areFriends = false;
+        if (!Models::MessageModel::areFriends(userId, receiverId, &areFriends)) {
+            return error(503, 2002, QStringLiteral("database_error"));
+        }
+        if (!areFriends) {
+            return error(403, 3001, QStringLiteral("receiver is not your friend"));
+        }
     }
 
     const auto fileSize = file.bytes.size();
@@ -110,6 +136,7 @@ FileResult FileService::upload(const QString& bearerToken,
     Models::FileRecord record;
     record.uploaderId = userId;
     record.receiverId = receiverId;
+    record.groupId = groupId;
     record.fileName = originalName;
     record.storedName = storedName;
     record.fileSize = fileSize;
@@ -118,9 +145,40 @@ FileResult FileService::upload(const QString& bearerToken,
     record.storagePath = QFileInfo(storagePath).absoluteFilePath();
     record.thumbnailPath = thumbnailPath.isEmpty() ? QString() : QFileInfo(thumbnailPath).absoluteFilePath();
 
+    auto db = Core::Database::getConnection();
+    if (!db.isValid() || !db.isOpen() || !db.transaction()) {
+        QFile::remove(record.storagePath);
+        if (!record.thumbnailPath.isEmpty()) {
+            QFile::remove(record.thumbnailPath);
+        }
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
     qint64 fileId = 0;
     QString createdAt;
-    if (!Models::FileModel::insertFileWithMessage(record, &fileId, &createdAt)) {
+    if (!Models::FileModel::insertFile(record, &fileId, &createdAt)) {
+        db.rollback();
+        QFile::remove(record.storagePath);
+        if (!record.thumbnailPath.isEmpty()) {
+            QFile::remove(record.thumbnailPath);
+        }
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
+    const auto content = Models::FileModel::messageContentJson(record, fileId);
+    bool messageOk = false;
+    if (groupId > 0) {
+        qint64 messageId = 0;
+        QString ignoredCreatedAt;
+        messageOk = Models::GroupMessageModel::insert(groupId, userId, content, type, &messageId, &ignoredCreatedAt);
+    } else {
+        qint64 messageId = 0;
+        QString ignoredCreatedAt;
+        messageOk = Models::MessageModel::insertMessage(userId, receiverId, content, type, &messageId, &ignoredCreatedAt);
+    }
+
+    if (!messageOk || !db.commit()) {
+        db.rollback();
         QFile::remove(record.storagePath);
         if (!record.thumbnailPath.isEmpty()) {
             QFile::remove(record.thumbnailPath);
@@ -150,8 +208,13 @@ FileBinaryResult FileService::download(const QString& bearerToken, qint64 fileId
     if (!Models::FileModel::fetchFile(fileId, &file)) {
         return binaryError(404, 4002, QStringLiteral("file not found"));
     }
-    if (file.uploaderId != userId && file.receiverId != userId) {
-        return binaryError(403, 1003, QStringLiteral("无权访问"));
+
+    bool access = false;
+    if (!canAccessFile(file, userId, &access)) {
+        return binaryError(503, 2002, QStringLiteral("database_error"));
+    }
+    if (!access) {
+        return binaryError(403, 1003, QStringLiteral("no permission"));
     }
 
     QFile diskFile(file.storagePath);
@@ -169,7 +232,7 @@ FileBinaryResult FileService::download(const QString& bearerToken, qint64 fileId
 
 FileBinaryResult FileService::thumbnail(const QString& bearerToken, qint64 fileId) const
 {
-    qDebug() << "请求缩略图 fileId：" << fileId;
+    qDebug() << "Thumbnail request fileId:" << fileId;
 
     qint64 userId = 0;
     if (!authenticate(bearerToken, &userId)) {
@@ -177,18 +240,23 @@ FileBinaryResult FileService::thumbnail(const QString& bearerToken, qint64 fileI
     }
 
     Models::FileRecord file;
-    if (!Models::FileModel::fetchFile(fileId, &file) || file.fileType != 1 || file.thumbnailPath.isEmpty()) {
+    if (!Models::FileModel::fetchFile(fileId, &file) || file.fileType != 1) {
         return binaryError(404, 4002, QStringLiteral("file not found"));
     }
-    if (file.uploaderId != userId && file.receiverId != userId) {
-        return binaryError(403, 1003, QStringLiteral("无权访问"));
+
+    bool access = false;
+    if (!canAccessFile(file, userId, &access)) {
+        return binaryError(503, 2002, QStringLiteral("database_error"));
+    }
+    if (!access) {
+        return binaryError(403, 1003, QStringLiteral("no permission"));
     }
 
     FileBinaryResult result;
     result.fileName = file.fileName + QStringLiteral(".thumbnail.png");
 
-    qDebug() << "缩略图路径：" << file.thumbnailPath;
-    qDebug() << "文件存在：" << QFile::exists(file.thumbnailPath);
+    qDebug() << "Thumbnail path:" << file.thumbnailPath;
+    qDebug() << "Thumbnail exists:" << QFile::exists(file.thumbnailPath);
 
     if (!file.thumbnailPath.isEmpty() && QFile::exists(file.thumbnailPath)) {
         QFile diskFile(file.thumbnailPath);
@@ -227,8 +295,13 @@ FileResult FileService::info(const QString& bearerToken, qint64 fileId) const
     if (!Models::FileModel::fetchFile(fileId, &file)) {
         return error(404, 4002, QStringLiteral("file not found"));
     }
-    if (file.uploaderId != userId && file.receiverId != userId) {
-        return error(403, 1003, QStringLiteral("无权访问"));
+
+    bool access = false;
+    if (!canAccessFile(file, userId, &access)) {
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+    if (!access) {
+        return error(403, 1003, QStringLiteral("no permission"));
     }
 
     FileResult result;

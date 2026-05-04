@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-05-04
+
+- 新增完整群聊系统后端接口：支持创建群聊、解散群聊、修改群名称与公告、查询群信息、群成员管理、群消息收发与历史分页，以及获取我加入的群列表。
+- 扩展 `POST /api/v1/files/upload` 以支持群文件和群图片上传，新增 `groupId` 表单字段，上传成功后自动写入 `group_messages` 文件消息。
+- 新增群聊相关数据表：`groups`、`group_members`、`group_messages`，并为 `files` 表补充 `group_id` 字段以关联群文件。
+
 ## 2026-05-01
 
 - 修复文件接口联调问题：会话列表新增 `lastMessageType`，缩略图接口按实际格式返回 `Content-Type`，并在历史缩略图缺失时实时缩放原图返回。

@@ -30,6 +30,10 @@ qt_add_executable(im_backend
     models/FriendshipModel.h
     models/FileModel.cpp
     models/FileModel.h
+    models/GroupModel.cpp
+    models/GroupModel.h
+    models/GroupMessageModel.cpp
+    models/GroupMessageModel.h
     routers/AuthRouter.cpp
     routers/AuthRouter.h
     routers/MessageRouter.cpp
@@ -40,6 +44,8 @@ qt_add_executable(im_backend
     routers/UserRouter.h
     routers/FileRouter.cpp
     routers/FileRouter.h
+    routers/GroupRouter.cpp
+    routers/GroupRouter.h
     realtime/WebSocketGateway.cpp
     realtime/WebSocketGateway.h
     services/AuthService.cpp
@@ -52,6 +58,8 @@ qt_add_executable(im_backend
     services/UserService.h
     services/FileService.cpp
     services/FileService.h
+    services/GroupService.cpp
+    services/GroupService.h
 )
 
 target_link_libraries(im_backend

@@ -9,6 +9,7 @@ struct FileRecord {
     qint64 id = 0;
     qint64 uploaderId = 0;
     qint64 receiverId = 0;
+    qint64 groupId = 0;
     QString fileName;
     QString storedName;
     qint64 fileSize = 0;
@@ -21,11 +22,12 @@ struct FileRecord {
 
 class FileModel final {
 public:
-    static bool insertFileWithMessage(const FileRecord& file,
-                                      qint64* fileId,
-                                      QString* createdAt);
+    static bool insertFile(const FileRecord& file,
+                           qint64* fileId,
+                           QString* createdAt);
     static bool fetchFile(qint64 fileId, FileRecord* file);
     static bool canAccess(qint64 fileId, qint64 userId, bool* result);
+    static QString messageContentJson(const FileRecord& file, qint64 fileId);
     static QJsonObject toJson(const FileRecord& file, bool includeThumbnail);
 };
 
