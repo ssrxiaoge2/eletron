@@ -11,6 +11,8 @@
 #include <QtCore/QTimer>
 #include <QtCore/qscopeguard.h>
 #include <QtNetwork/QHttpMultiPart>
+#include <QtCore/QMimeDatabase>
+#include <QtCore/QMimeType>
 #include <QtNetwork/QNetworkReply>
 #include <QtNetwork/QNetworkRequest>
 
@@ -160,10 +162,14 @@ QNetworkReply *ApiClient::uploadFile(
 
   auto *multi_part = new QHttpMultiPart(QHttpMultiPart::FormDataType);
   QHttpPart file_part;
+  const QMimeType mime_type =
+      QMimeDatabase().mimeTypeForFile(file_path, QMimeDatabase::MatchContent);
   file_part.setHeader(
       QNetworkRequest::ContentDispositionHeader,
       QStringLiteral("form-data; name=\"file\"; filename=\"%1\"")
           .arg(QFileInfo(file_path).fileName()));
+  file_part.setHeader(QNetworkRequest::ContentTypeHeader,
+                      mime_type.name().toUtf8());
   file_part.setBodyDevice(file);
   file->setParent(multi_part);
   multi_part->append(file_part);

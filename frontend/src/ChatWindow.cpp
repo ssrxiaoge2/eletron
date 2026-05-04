@@ -86,6 +86,11 @@ QJsonObject ParseContentJson(const QString &content) {
 }
 
 int ResolveMessageType(const QJsonObject &message) {
+  const int raw_type = message.value("type").toInt(-1);
+  if (raw_type == 1 || raw_type == 2) {
+    return raw_type;
+  }
+
   const QJsonObject content = ParseContentJson(message.value("content").toString());
   if (!content.isEmpty()) {
     const int file_type = content.value("fileType").toInt(
@@ -103,10 +108,6 @@ int ResolveMessageType(const QJsonObject &message) {
     }
   }
 
-  const int raw_type = message.value("type").toInt(-1);
-  if (raw_type == 1 || raw_type == 2) {
-    return raw_type;
-  }
   return 0;
 }
 
@@ -520,20 +521,13 @@ void ChatWindow::UploadAttachment(const QString &file_path, int type,
         current_upload_reply_ = nullptr;
         upload_progress_widget_->Finish();
         const QJsonObject data = response.value("data").toObject();
-        const QString content =
-            QString::fromUtf8(QJsonDocument(data).toJson(QJsonDocument::Compact));
-        QJsonObject message;
-        message.insert("content", content);
-        message.insert("createdAt", data.value("createdAt").toString(
-                                        QDateTime::currentDateTime().toString(
-                                            "yyyy-MM-dd HH:mm:ss")));
-        message.insert("isSelf", true);
-        message.insert("type", type);
-        AppendMessage(message, false);
+        FetchMessages(false);
         emit messageSent(current_target_user_id_,
                          type == 1 ? QStringLiteral("[\u56fe\u7247]")
                                    : QStringLiteral("[\u6587\u4ef6]"),
-                         message.value("createdAt").toString());
+                         data.value("createdAt").toString(
+                             QDateTime::currentDateTime().toString(
+                                 "yyyy-MM-dd HH:mm:ss")));
       },
       [this]() {
         current_upload_reply_ = nullptr;
