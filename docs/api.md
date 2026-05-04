@@ -118,6 +118,15 @@
 }
 ```
 
+当前用户已在线：HTTP `409`。后端不会创建新的 session。
+
+```json
+{
+  "code": 1005,
+  "message": "current user already logged in"
+}
+```
+
 ## POST `/api/v1/auth/logout`
 
 Header:

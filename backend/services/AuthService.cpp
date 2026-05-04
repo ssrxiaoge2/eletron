@@ -58,7 +58,7 @@ AuthResult AuthService::login(const QString& username, const QString& password) 
 
     QSqlQuery query(db);
     query.prepare(QStringLiteral(
-        "SELECT id, username, password_hash FROM users "
+        "SELECT id, username, password_hash, status FROM users "
         "WHERE username = :username AND is_deleted = 0 LIMIT 1"));
     query.bindValue(QStringLiteral(":username"), username);
     if (!query.exec()) {
@@ -67,6 +67,10 @@ AuthResult AuthService::login(const QString& username, const QString& password) 
 
     if (!query.next() || query.value(QStringLiteral("password_hash")).toString() != hashPassword(password)) {
         return error(401, 1001, QStringLiteral("invalid username or password"));
+    }
+
+    if (query.value(QStringLiteral("status")).toInt() == 1) {
+        return error(409, 1005, QStringLiteral("current user already logged in"));
     }
 
     const auto userId = query.value(QStringLiteral("id")).toLongLong();
