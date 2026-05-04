@@ -235,7 +235,7 @@ LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent) {
   root_layout->addWidget(mode_stack_);
 
   LoadCachedUsers();
-  if (HasCachedUsers()) {
+  if (HasCachedTokens()) {
     ShowCachedLogin();
   } else {
     ShowPasswordLogin();
@@ -367,8 +367,11 @@ void LoginWindow::LoadCachedUsers() {
   for (const QString &username : usernames) {
     settings.beginGroup(username);
     const QString nickname = settings.value(kNicknameKey).toString();
+    const QString token = settings.value(kTokenKey).toString();
     settings.remove(kLegacyPasswordKey);
-    cached_account_combo_->addItem(DisplayName(username, nickname), username);
+    if (!token.isEmpty()) {
+      cached_account_combo_->addItem(DisplayName(username, nickname), username);
+    }
     username_combo_->addItem(username, username);
     settings.endGroup();
   }
@@ -424,6 +427,11 @@ void LoginWindow::RemoveCachedToken(const QString &username) {
   settings.remove(kTokenKey);
   settings.endGroup();
   settings.endGroup();
+
+  const int cached_index = cached_account_combo_->findData(username);
+  if (cached_index >= 0) {
+    cached_account_combo_->removeItem(cached_index);
+  }
 }
 
 void LoginWindow::SyncCachedUser(int index) {
@@ -503,6 +511,6 @@ QString LoginWindow::CachedToken(const QString &username) const {
   return token;
 }
 
-bool LoginWindow::HasCachedUsers() const {
+bool LoginWindow::HasCachedTokens() const {
   return cached_account_combo_->count() > 0;
 }

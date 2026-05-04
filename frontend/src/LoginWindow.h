@@ -34,7 +34,7 @@ class LoginWindow : public QWidget {
   QString CurrentUsername() const;
   QString CurrentCachedUsername() const;
   QString CachedToken(const QString &username) const;
-  bool HasCachedUsers() const;
+  bool HasCachedTokens() const;
 
   AuthClient *auth_client_;
   QLabel *avatar_label_;

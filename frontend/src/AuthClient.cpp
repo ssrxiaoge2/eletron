@@ -34,7 +34,7 @@ QString AlreadyLoggedInMessage() {
 bool IsAlreadyLoggedInError(int status_code, int code,
                             const QString &message) {
   const QString lower_message = message.toLower();
-  return status_code == 409 || code == 1005 || code == 1006 ||
+  return code == 1005 ||
          lower_message.contains("already logged") ||
          lower_message.contains("already login") ||
          lower_message.contains("already online") ||
