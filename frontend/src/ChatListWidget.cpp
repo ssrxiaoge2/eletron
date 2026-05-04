@@ -5,7 +5,6 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonObject>
-#include <QtCore/QJsonValue>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
@@ -21,26 +20,12 @@ constexpr int kLastMessageRole = Qt::UserRole + 3;
 constexpr int kLastMessageTimeRole = Qt::UserRole + 4;
 constexpr int kUnreadCountRole = Qt::UserRole + 5;
 
-bool IsOnlineValue(const QJsonValue &value) {
-  if (value.isBool()) {
-    return value.toBool();
-  }
-  if (value.isDouble()) {
-    return value.toInt() == 1;
-  }
-  const QString text = value.toString().toLower();
-  return text == "1" || text == "true" || text == "online";
-}
-
 bool IsOnline(const QJsonObject &item) {
-  if (item.contains("isOnline")) {
-    return IsOnlineValue(item.value("isOnline"));
-  }
-  return IsOnlineValue(item.value("status"));
+  return item.value("isOnline").toBool(false);
 }
 
 QString OnlineDotStyle(bool is_online) {
-  return QStringLiteral("border-radius: 4px; background: %1;")
+  return QStringLiteral("border-radius: 4px; background-color: %1;")
       .arg(is_online ? QStringLiteral("#26c35a") : QStringLiteral("#9a9a9a"));
 }
 
@@ -68,6 +53,7 @@ class SessionItemWidget : public QWidget {
     online_dot->setObjectName(is_online ? "sessionOnlineDot"
                                         : "sessionOfflineDot");
     online_dot->setStyleSheet(OnlineDotStyle(is_online));
+    online_dot->setAttribute(Qt::WA_StyledBackground, true);
     name_label->setObjectName("sessionName");
     time_label->setObjectName("sessionTime");
     preview_label->setObjectName("sessionPreview");
@@ -78,8 +64,10 @@ class SessionItemWidget : public QWidget {
     avatar->setAlignment(Qt::AlignCenter);
     online_dot->setFixedSize(8, 8);
     avatar_layout->setContentsMargins(0, 0, 0, 0);
+    avatar_layout->setSpacing(0);
     avatar_layout->addWidget(avatar, 0, Qt::AlignTop | Qt::AlignLeft);
-    avatar_layout->addWidget(online_dot, 0, Qt::AlignRight | Qt::AlignBottom);
+    online_dot->raise();
+    online_dot->move(34, 34);
 
     preview_label->setTextFormat(Qt::PlainText);
     preview_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);

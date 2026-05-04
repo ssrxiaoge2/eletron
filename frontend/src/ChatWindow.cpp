@@ -36,7 +36,7 @@ QString SendFailedText() {
 }
 
 QString OnlineDotStyle(bool is_online) {
-  return QStringLiteral("border-radius: 4px; background: %1;")
+  return QStringLiteral("border-radius: 4px; background-color: %1;")
       .arg(is_online ? QStringLiteral("#26c35a") : QStringLiteral("#9a9a9a"));
 }
 
@@ -80,6 +80,7 @@ void ChatWindow::updateOnlineStatus(int target_user_id, bool is_online) {
   }
   online_dot_->setObjectName(is_online ? "onlineDot" : "offlineDot");
   online_dot_->setStyleSheet(OnlineDotStyle(is_online));
+  online_dot_->setAttribute(Qt::WA_StyledBackground, true);
   online_dot_->style()->unpolish(online_dot_);
   online_dot_->style()->polish(online_dot_);
 }

@@ -12,7 +12,6 @@
 #include <QtCore/QIODevice>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonObject>
-#include <QtCore/QJsonValue>
 #include <QtCore/QTimer>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QSplitter>
@@ -24,23 +23,9 @@
 
 namespace {
 
-bool IsOnlineValue(const QJsonValue &value) {
-  if (value.isBool()) {
-    return value.toBool();
-  }
-  if (value.isDouble()) {
-    return value.toInt() == 1;
-  }
-  const QString text = value.toString().toLower();
-  return text == "1" || text == "true" || text == "online";
-}
-
 bool IsOnline(const QJsonObject &item, bool fallback) {
   if (item.contains("isOnline")) {
-    return IsOnlineValue(item.value("isOnline"));
-  }
-  if (item.contains("status")) {
-    return IsOnlineValue(item.value("status"));
+    return item.value("isOnline").toBool(false);
   }
   return fallback;
 }

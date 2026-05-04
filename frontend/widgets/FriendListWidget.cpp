@@ -4,7 +4,6 @@
 
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonObject>
-#include <QtCore/QJsonValue>
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
@@ -21,26 +20,12 @@ QString DisplayName(const QString &username, const QString &nickname) {
   return nickname.isEmpty() ? username : nickname;
 }
 
-bool IsOnlineValue(const QJsonValue &value) {
-  if (value.isBool()) {
-    return value.toBool();
-  }
-  if (value.isDouble()) {
-    return value.toInt() == 1;
-  }
-  const QString text = value.toString().toLower();
-  return text == "1" || text == "true" || text == "online";
-}
-
 bool IsOnline(const QJsonObject &item) {
-  if (item.contains("isOnline")) {
-    return IsOnlineValue(item.value("isOnline"));
-  }
-  return IsOnlineValue(item.value("status"));
+  return item.value("isOnline").toBool(false);
 }
 
 QString OnlineDotStyle(bool is_online) {
-  return QStringLiteral("border-radius: 4px; background: %1;")
+  return QStringLiteral("border-radius: 4px; background-color: %1;")
       .arg(is_online ? QStringLiteral("#26c35a") : QStringLiteral("#9a9a9a"));
 }
 
@@ -61,6 +46,7 @@ class FriendItemWidget : public QWidget {
     signature_label->setObjectName("friendSignature");
     online_dot->setObjectName(is_online ? "onlineDot" : "offlineDot");
     online_dot->setStyleSheet(OnlineDotStyle(is_online));
+    online_dot->setAttribute(Qt::WA_StyledBackground, true);
     avatar->setFixedSize(36, 36);
     avatar->setAlignment(Qt::AlignCenter);
     online_dot->setFixedSize(8, 8);
