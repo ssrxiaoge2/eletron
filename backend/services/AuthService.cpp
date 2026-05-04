@@ -69,12 +69,24 @@ AuthResult AuthService::login(const QString& username, const QString& password) 
         return error(401, 1001, QStringLiteral("invalid username or password"));
     }
 
-    if (query.value(QStringLiteral("status")).toInt() == 1) {
+    const auto userId = query.value(QStringLiteral("id")).toLongLong();
+    const auto foundUsername = query.value(QStringLiteral("username")).toString();
+
+    QSqlQuery activeSessionQuery(db);
+    activeSessionQuery.prepare(QStringLiteral(
+        "SELECT id FROM sessions "
+        "WHERE user_id = :user_id "
+        "AND expired_at > UTC_TIMESTAMP() "
+        "AND is_deleted = 0 "
+        "LIMIT 1"));
+    activeSessionQuery.bindValue(QStringLiteral(":user_id"), userId);
+    if (!activeSessionQuery.exec()) {
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+    if (activeSessionQuery.next()) {
         return error(409, 1005, QStringLiteral("current user already logged in"));
     }
 
-    const auto userId = query.value(QStringLiteral("id")).toLongLong();
-    const auto foundUsername = query.value(QStringLiteral("username")).toString();
     const auto token = Core::JwtHelper::createToken(
         userId,
         foundUsername,

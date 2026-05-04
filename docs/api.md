@@ -118,7 +118,7 @@
 }
 ```
 
-当前用户已在线：HTTP `409`。后端不会创建新的 session。
+当前用户已有有效 session：HTTP `409`。后端不会创建新的 session。
 
 ```json
 {
