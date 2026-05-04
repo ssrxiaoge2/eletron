@@ -36,8 +36,12 @@ qt_add_executable(qq_desktop_frontend
   widgets/EditProfileDialog.h
   widgets/FriendListWidget.cpp
   widgets/FriendListWidget.h
+  widgets/ImageViewerDialog.cpp
+  widgets/ImageViewerDialog.h
   widgets/ProfileDialog.cpp
   widgets/ProfileDialog.h
+  widgets/UploadProgressWidget.cpp
+  widgets/UploadProgressWidget.h
   resources/MainWindow.qrc
 )
 

@@ -386,6 +386,68 @@ QLabel#receivedBubble {
   font-size: 14px;
 }
 
+QLabel#imageBubble {
+  background: #4a90d9;
+  color: #ffffff;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+QFrame#fileBubble {
+  background: #4a90d9;
+  color: #ffffff;
+  border-radius: 12px;
+}
+
+QLabel#fileNameLabel {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+QLabel#fileSizeLabel {
+  color: #eaf4ff;
+  font-size: 12px;
+}
+
+QLabel#fileDownloadLabel {
+  color: #ffffff;
+  font-size: 12px;
+  text-decoration: underline;
+}
+
+QFrame#fileBubble:hover QLabel#fileDownloadLabel {
+  color: #d7ebff;
+}
+
+QWidget#uploadProgressWidget {
+  background: #f6fbff;
+  border-top: 1px solid #d9eaf6;
+  border-bottom: 1px solid #d9eaf6;
+}
+
+QWidget#uploadProgressWidget QLabel {
+  color: #222222;
+}
+
+QPushButton#uploadCancelButton {
+  min-width: 54px;
+  min-height: 24px;
+  border: 0;
+  border-radius: 4px;
+  background: #e7eef5;
+  color: #333333;
+}
+
+QDialog#imageViewerDialog {
+  background: #111111;
+  color: #ffffff;
+}
+
+QDialog#imageViewerDialog QLabel {
+  color: #ffffff;
+}
+
 QWidget#inputArea {
   min-height: 150px;
   max-height: 150px;

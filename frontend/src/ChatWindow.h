@@ -5,15 +5,19 @@
 #include <QtCore/QString>
 #include <QtWidgets/QWidget>
 
+#include "MessageBubble.h"
+
 class QJsonObject;
 class QScrollArea;
 class QLabel;
-class MessageBubble;
+class QNetworkReply;
 class QPushButton;
 class QResizeEvent;
 class QTextEdit;
+class QToolButton;
 class QTimer;
 class QVBoxLayout;
+class UploadProgressWidget;
 
 class ChatWindow : public QWidget {
   Q_OBJECT
@@ -38,12 +42,20 @@ signals:
   QWidget *CreateMessageArea();
   QWidget *CreateInputArea();
   void AddTimestamp(const QString &time_text);
-  void AddMessage(const QString &text, bool sent_by_me);
+  void AddMessage(const QString &content, MessageBubble::BubbleType type,
+                  bool sent_by_me, const QString &time = QString());
   void FetchMessages(bool full_refresh);
   void AppendMessage(const QJsonObject &message, bool notify_new_message);
   QString MessageKey(const QJsonObject &message) const;
+  QString FallbackMessageKey(const QJsonObject &message) const;
   void RemoveAllBubbles();
   void HandleSend();
+  void HandleSelectImage();
+  void HandleSelectFile();
+  void UploadAttachment(const QString &file_path, int type, qint64 max_size,
+                        const QString &too_large_message);
+  void OpenImage(int file_id, const QString &file_name, qint64 file_size);
+  void DownloadFile(int file_id, const QString &file_name, qint64 file_size);
   void RefreshCurrentMessages();
   void ScrollToBottom();
   QString FormatTime(const QString &raw_time) const;
@@ -56,9 +68,14 @@ signals:
   QVBoxLayout *message_layout_;
   QTextEdit *message_input_;
   QPushButton *send_button_;
+  QToolButton *image_button_;
+  QToolButton *file_button_;
   QLabel *name_label_;
   QLabel *online_dot_;
   QTimer *message_refresh_timer_;
+  UploadProgressWidget *upload_progress_widget_;
+  QNetworkReply *current_upload_reply_ = nullptr;
+  bool upload_cancelled_ = false;
   QList<MessageBubble *> bubbles_;
   QSet<QString> rendered_message_keys_;
   QString last_rendered_minute_;

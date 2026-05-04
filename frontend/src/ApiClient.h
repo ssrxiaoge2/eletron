@@ -34,6 +34,17 @@ class ApiClient : public QObject {
   void put(const QString &path, const QJsonObject &body, const QObject *receiver,
            std::function<void(const QJsonObject &)> on_success,
            std::function<void()> on_failure = {});
+  QNetworkReply *uploadFile(
+      const QString &file_path, int type, int receiver_id,
+      const QObject *receiver,
+      std::function<void(const QJsonObject &)> on_success,
+      std::function<void()> on_failure = {},
+      std::function<void(qint64, qint64)> on_progress = {});
+  QNetworkReply *downloadBytes(
+      const QString &path, const QObject *receiver,
+      std::function<void(const QByteArray &)> on_success,
+      std::function<void()> on_failure = {},
+      std::function<void(qint64, qint64)> on_progress = {});
 
  private:
   explicit ApiClient(QObject *parent = nullptr);

@@ -3,10 +3,13 @@
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDir>
 #include <QtCore/QEventLoop>
+#include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QLockFile>
 #include <QtCore/QTimer>
 #include <QtCore/qscopeguard.h>
+#include <QtNetwork/QHttpMultiPart>
 #include <QtNetwork/QNetworkReply>
 #include <QtNetwork/QNetworkRequest>
 
@@ -138,6 +141,89 @@ void ApiClient::put(const QString &path, const QJsonObject &body,
   connect(reply, &QNetworkReply::finished, this, [=]() {
     HandleReply(reply, receiver, on_success, on_failure);
   });
+}
+
+QNetworkReply *ApiClient::uploadFile(
+    const QString &file_path, int type, int receiver_id,
+    const QObject *receiver, std::function<void(const QJsonObject &)> on_success,
+    std::function<void()> on_failure,
+    std::function<void(qint64, qint64)> on_progress) {
+  auto *file = new QFile(file_path);
+  if (!file->open(QIODevice::ReadOnly)) {
+    file->deleteLater();
+    if (on_failure) {
+      on_failure();
+    }
+    return nullptr;
+  }
+
+  auto *multi_part = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+  QHttpPart file_part;
+  file_part.setHeader(
+      QNetworkRequest::ContentDispositionHeader,
+      QStringLiteral("form-data; name=\"file\"; filename=\"%1\"")
+          .arg(QFileInfo(file_path).fileName()));
+  file_part.setBodyDevice(file);
+  file->setParent(multi_part);
+  multi_part->append(file_part);
+
+  QHttpPart type_part;
+  type_part.setHeader(QNetworkRequest::ContentDispositionHeader,
+                      QStringLiteral("form-data; name=\"type\""));
+  type_part.setBody(QString::number(type).toUtf8());
+  multi_part->append(type_part);
+
+  QHttpPart receiver_part;
+  receiver_part.setHeader(QNetworkRequest::ContentDispositionHeader,
+                          QStringLiteral("form-data; name=\"receiverId\""));
+  receiver_part.setBody(QString::number(receiver_id).toUtf8());
+  multi_part->append(receiver_part);
+
+  QNetworkReply *reply =
+      network_manager_.post(CreateRequest("/api/v1/files/upload"), multi_part);
+  multi_part->setParent(reply);
+
+  if (on_progress) {
+    connect(reply, &QNetworkReply::uploadProgress, this,
+            [on_progress](qint64 sent, qint64 total) {
+              on_progress(sent, total);
+            });
+  }
+  connect(reply, &QNetworkReply::finished, this, [=]() {
+    HandleReply(reply, receiver, on_success, on_failure);
+  });
+  return reply;
+}
+
+QNetworkReply *ApiClient::downloadBytes(
+    const QString &path, const QObject *receiver,
+    std::function<void(const QByteArray &)> on_success,
+    std::function<void()> on_failure,
+    std::function<void(qint64, qint64)> on_progress) {
+  QNetworkReply *reply = network_manager_.get(CreateRequest(path));
+  if (on_progress) {
+    connect(reply, &QNetworkReply::downloadProgress, this,
+            [on_progress](qint64 received, qint64 total) {
+              on_progress(received, total);
+            });
+  }
+  connect(reply, &QNetworkReply::finished, this, [=]() {
+    const auto cleanup = qScopeGuard([reply]() { reply->deleteLater(); });
+    if (receiver == nullptr) {
+      return;
+    }
+
+    const QByteArray response_body = reply->readAll();
+    if (reply->error() == QNetworkReply::NoError) {
+      on_success(response_body);
+      return;
+    }
+
+    if (on_failure) {
+      on_failure();
+    }
+  });
+  return reply;
 }
 
 QNetworkRequest ApiClient::CreateRequest(const QString &path) const {

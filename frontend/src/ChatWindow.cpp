@@ -2,17 +2,26 @@
 
 #include "ApiClient.h"
 #include "MessageBubble.h"
+#include "../widgets/ImageViewerDialog.h"
+#include "../widgets/UploadProgressWidget.h"
 
 #include <QtCore/QDateTime>
+#include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QJsonArray>
+#include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QTimer>
 #include <QtCore/QtGlobal>
 #include <QtGui/QResizeEvent>
+#include <QtGui/QPixmap>
+#include <QtNetwork/QNetworkReply>
+#include <QtWidgets/QFileDialog>
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMessageBox>
+#include <QtWidgets/QProgressDialog>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QScrollArea>
 #include <QtWidgets/QScrollBar>
@@ -38,9 +47,27 @@ QString SendFailedText() {
   return QStringLiteral("\u53d1\u9001\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5");
 }
 
+QString UploadFailedText() {
+  return QStringLiteral("\u4e0a\u4f20\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5");
+}
+
+QString DownloadFailedText() {
+  return QStringLiteral("\u4e0b\u8f7d\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5");
+}
+
 QString OnlineDotStyle(bool is_online) {
   return QStringLiteral("border-radius: 4px; background-color: %1;")
       .arg(is_online ? QStringLiteral("#26c35a") : QStringLiteral("#9a9a9a"));
+}
+
+QString ReadableFileSize(qint64 size) {
+  if (size < 1024) {
+    return QStringLiteral("%1 B").arg(size);
+  }
+  if (size < 1024 * 1024) {
+    return QStringLiteral("%1 KB").arg(size / 1024.0, 0, 'f', 1);
+  }
+  return QStringLiteral("%1 MB").arg(size / 1024.0 / 1024.0, 0, 'f', 1);
 }
 
 }  // namespace
@@ -51,16 +78,26 @@ ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
 
   auto *root_layout = new QVBoxLayout(this);
   message_refresh_timer_ = new QTimer(this);
+  upload_progress_widget_ = new UploadProgressWidget(this);
   message_refresh_timer_->setInterval(2000);
 
   root_layout->setContentsMargins(0, 0, 0, 0);
   root_layout->setSpacing(0);
   root_layout->addWidget(CreateTitleBar());
   root_layout->addWidget(CreateMessageArea(), 1);
+  root_layout->addWidget(upload_progress_widget_);
   root_layout->addWidget(CreateInputArea());
 
   connect(message_refresh_timer_, &QTimer::timeout, this,
           &ChatWindow::RefreshCurrentMessages);
+  connect(upload_progress_widget_, &UploadProgressWidget::cancelRequested, this,
+          [this]() {
+            if (current_upload_reply_ != nullptr) {
+              upload_cancelled_ = true;
+              current_upload_reply_->abort();
+            }
+            upload_progress_widget_->Finish();
+          });
 }
 
 void ChatWindow::loadMessages(int target_user_id, const QString &target_username,
@@ -168,10 +205,13 @@ QWidget *ChatWindow::CreateInputArea() {
 
   tool_layout->setContentsMargins(14, 0, 14, 0);
   tool_layout->setSpacing(6);
+  file_button_ = CreateToolButton(tool_bar, QStringLiteral("\u6587"));
+  image_button_ = CreateToolButton(tool_bar, QStringLiteral("\u56fe"));
+
   tool_layout->addWidget(CreateToolButton(tool_bar, QStringLiteral("\u263a")));
   tool_layout->addWidget(CreateToolButton(tool_bar, QStringLiteral("\u2702")));
-  tool_layout->addWidget(CreateToolButton(tool_bar, QStringLiteral("\u6587")));
-  tool_layout->addWidget(CreateToolButton(tool_bar, QStringLiteral("\u56fe")));
+  tool_layout->addWidget(file_button_);
+  tool_layout->addWidget(image_button_);
   tool_layout->addWidget(CreateToolButton(tool_bar, QStringLiteral("\u5386")));
   tool_layout->addStretch();
 
@@ -188,6 +228,10 @@ QWidget *ChatWindow::CreateInputArea() {
   root_layout->addWidget(send_row);
 
   connect(send_button_, &QPushButton::clicked, this, &ChatWindow::HandleSend);
+  connect(image_button_, &QToolButton::clicked, this,
+          &ChatWindow::HandleSelectImage);
+  connect(file_button_, &QToolButton::clicked, this,
+          &ChatWindow::HandleSelectFile);
   return input_area;
 }
 
@@ -217,10 +261,16 @@ void ChatWindow::AddTimestamp(const QString &time_text) {
   message_layout_->insertWidget(message_layout_->count() - 1, time_row);
 }
 
-void ChatWindow::AddMessage(const QString &text, bool sent_by_me) {
-  auto *bubble = new MessageBubble(text, sent_by_me, this);
+void ChatWindow::AddMessage(const QString &content,
+                            MessageBubble::BubbleType type, bool sent_by_me,
+                            const QString &time) {
+  auto *bubble = new MessageBubble(content, type, sent_by_me, time, this);
   bubble->setMaxBubbleWidth(MaxBubbleWidth());
   bubbles_.append(bubble);
+  connect(bubble, &MessageBubble::imageOpenRequested, this,
+          &ChatWindow::OpenImage);
+  connect(bubble, &MessageBubble::fileDownloadRequested, this,
+          &ChatWindow::DownloadFile);
   message_layout_->insertWidget(message_layout_->count() - 1, bubble);
   ScrollToBottom();
 }
@@ -261,7 +311,9 @@ void ChatWindow::FetchMessages(bool full_refresh) {
 void ChatWindow::AppendMessage(const QJsonObject &message,
                                bool notify_new_message) {
   const QString key = MessageKey(message);
-  if (rendered_message_keys_.contains(key)) {
+  const QString fallback_key = FallbackMessageKey(message);
+  if (rendered_message_keys_.contains(key) ||
+      rendered_message_keys_.contains(fallback_key)) {
     return;
   }
 
@@ -274,8 +326,12 @@ void ChatWindow::AppendMessage(const QJsonObject &message,
 
   const QString content = message.value("content").toString();
   const bool is_self = message.value("isSelf").toBool();
+  const int raw_type = message.value("type").toInt(0);
+  const int type = raw_type >= 0 && raw_type <= 2 ? raw_type : 0;
   rendered_message_keys_.insert(key);
-  AddMessage(content, is_self);
+  rendered_message_keys_.insert(fallback_key);
+  AddMessage(content, static_cast<MessageBubble::BubbleType>(type), is_self,
+             created_at);
   if (notify_new_message && !is_self) {
     emit messageReceived(current_target_user_id_, content, created_at);
   }
@@ -286,11 +342,17 @@ QString ChatWindow::MessageKey(const QJsonObject &message) const {
   if (message_id > 0) {
     return QStringLiteral("id:%1").arg(message_id);
   }
+  return FallbackMessageKey(message);
+}
+
+QString ChatWindow::FallbackMessageKey(const QJsonObject &message) const {
   return QStringLiteral("fallback:%1:%2:%3")
       .arg(message.value("createdAt").toString(),
            message.value("isSelf").toBool() ? QStringLiteral("1")
                                             : QStringLiteral("0"),
-           message.value("content").toString());
+           QStringLiteral("%1:%2")
+               .arg(message.value("type").toInt(0))
+               .arg(message.value("content").toString()));
 }
 
 void ChatWindow::RemoveAllBubbles() {
@@ -327,6 +389,7 @@ void ChatWindow::HandleSend() {
         message.insert("content", text);
         message.insert("createdAt", created_at);
         message.insert("isSelf", true);
+        message.insert("type", 0);
         AppendMessage(message, false);
         message_input_->clear();
         send_button_->setEnabled(true);
@@ -336,6 +399,160 @@ void ChatWindow::HandleSend() {
         send_button_->setEnabled(true);
         QMessageBox::warning(this, QString(), SendFailedText());
       });
+}
+
+void ChatWindow::HandleSelectImage() {
+  if (current_target_user_id_ <= 0) {
+    return;
+  }
+  const QString file_path = QFileDialog::getOpenFileName(
+      this, QStringLiteral("\u9009\u62e9\u56fe\u7247"), QString(),
+      QStringLiteral("\u56fe\u7247\u6587\u4ef6 (*.png *.jpg *.jpeg *.gif *.bmp *.webp)"));
+  if (file_path.isEmpty()) {
+    return;
+  }
+  UploadAttachment(file_path, 1, 20LL * 1024 * 1024,
+                   QStringLiteral("\u56fe\u7247\u5927\u5c0f\u4e0d\u80fd\u8d85\u8fc7 20MB"));
+}
+
+void ChatWindow::HandleSelectFile() {
+  if (current_target_user_id_ <= 0) {
+    return;
+  }
+  const QString file_path = QFileDialog::getOpenFileName(
+      this, QStringLiteral("\u9009\u62e9\u6587\u4ef6"), QString(),
+      QStringLiteral("\u6240\u6709\u6587\u4ef6 (*.*)"));
+  if (file_path.isEmpty()) {
+    return;
+  }
+  UploadAttachment(file_path, 2, 100LL * 1024 * 1024,
+                   QStringLiteral("\u6587\u4ef6\u5927\u5c0f\u4e0d\u80fd\u8d85\u8fc7 100MB"));
+}
+
+void ChatWindow::UploadAttachment(const QString &file_path, int type,
+                                  qint64 max_size,
+                                  const QString &too_large_message) {
+  const QFileInfo file_info(file_path);
+  if (!file_info.exists() || !file_info.isFile()) {
+    return;
+  }
+  if (file_info.size() > max_size) {
+    QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+                         too_large_message);
+    return;
+  }
+
+  upload_progress_widget_->Start(file_info.fileName());
+  upload_cancelled_ = false;
+  current_upload_reply_ = ApiClient::instance()->uploadFile(
+      file_path, type, current_target_user_id_, this,
+      [this, type](const QJsonObject &response) {
+        current_upload_reply_ = nullptr;
+        upload_progress_widget_->Finish();
+        const QJsonObject data = response.value("data").toObject();
+        const QString content =
+            QString::fromUtf8(QJsonDocument(data).toJson(QJsonDocument::Compact));
+        QJsonObject message;
+        message.insert("content", content);
+        message.insert("createdAt", data.value("createdAt").toString(
+                                        QDateTime::currentDateTime().toString(
+                                            "yyyy-MM-dd HH:mm:ss")));
+        message.insert("isSelf", true);
+        message.insert("type", type);
+        AppendMessage(message, false);
+        emit messageSent(current_target_user_id_,
+                         type == 1 ? QStringLiteral("[\u56fe\u7247]")
+                                   : QStringLiteral("[\u6587\u4ef6]"),
+                         message.value("createdAt").toString());
+      },
+      [this]() {
+        current_upload_reply_ = nullptr;
+        upload_progress_widget_->Finish();
+        if (upload_cancelled_) {
+          upload_cancelled_ = false;
+          return;
+        }
+        QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+                             UploadFailedText());
+      },
+      [this](qint64 sent, qint64 total) {
+        upload_progress_widget_->SetProgress(sent, total);
+      });
+  if (current_upload_reply_ == nullptr) {
+    upload_progress_widget_->Finish();
+  }
+}
+
+void ChatWindow::OpenImage(int file_id, const QString &file_name,
+                           qint64 file_size) {
+  ApiClient::instance()->downloadBytes(
+      QStringLiteral("/api/v1/files/download/%1").arg(file_id), this,
+      [this, file_name, file_size](const QByteArray &data) {
+        QPixmap pixmap;
+        if (!pixmap.loadFromData(data)) {
+          QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+                               DownloadFailedText());
+          return;
+        }
+        auto *dialog = new ImageViewerDialog(pixmap, file_name, file_size, this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->show();
+      },
+      [this]() {
+        QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+                             DownloadFailedText());
+      });
+}
+
+void ChatWindow::DownloadFile(int file_id, const QString &file_name,
+                              qint64 file_size) {
+  const QString readable_size = ReadableFileSize(file_size);
+  const QMessageBox::StandardButton choice = QMessageBox::question(
+      this, QStringLiteral("\u4e0b\u8f7d\u6587\u4ef6"),
+      QStringLiteral("\u662f\u5426\u4e0b\u8f7d\uff1a%1\uff08%2\uff09\uff1f")
+          .arg(file_name, readable_size));
+  if (choice != QMessageBox::Yes) {
+    return;
+  }
+
+  const QString save_path = QFileDialog::getSaveFileName(
+      this, QStringLiteral("\u4fdd\u5b58\u6587\u4ef6"), file_name);
+  if (save_path.isEmpty()) {
+    return;
+  }
+
+  auto *progress = new QProgressDialog(
+      QStringLiteral("\u6b63\u5728\u4e0b\u8f7d\uff1a%1").arg(file_name),
+      QStringLiteral("\u53d6\u6d88"), 0, 100, this);
+  progress->setWindowModality(Qt::WindowModal);
+  progress->setAttribute(Qt::WA_DeleteOnClose);
+  QNetworkReply *reply = ApiClient::instance()->downloadBytes(
+      QStringLiteral("/api/v1/files/download/%1").arg(file_id), this,
+      [this, save_path, progress](const QByteArray &data) {
+        progress->close();
+        QFile file(save_path);
+        if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size()) {
+          QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+                               DownloadFailedText());
+          return;
+        }
+        QMessageBox::information(
+            this, QStringLiteral("\u4e0b\u8f7d\u5b8c\u6210"),
+            QStringLiteral("\u6587\u4ef6\u5df2\u4fdd\u5b58\u81f3\uff1a%1")
+                .arg(save_path));
+      },
+      [this, progress]() {
+        progress->close();
+        QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+                             DownloadFailedText());
+      },
+      [progress](qint64 received, qint64 total) {
+        if (total > 0) {
+          progress->setValue(static_cast<int>(received * 100 / total));
+        }
+      });
+  connect(progress, &QProgressDialog::canceled, reply, &QNetworkReply::abort);
+  progress->show();
 }
 
 void ChatWindow::RefreshCurrentMessages() {
