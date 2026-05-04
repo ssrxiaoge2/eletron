@@ -24,6 +24,7 @@ class MainWindow : public QMainWindow {
   void OpenConversation(int target_user_id, const QString &display_name,
                         bool is_online);
   void RefreshFriendRequests();
+  void RefreshPresence();
   void SwitchMiddlePanel(int index);
 
   bool session_initialized_ = false;
@@ -34,4 +35,5 @@ class MainWindow : public QMainWindow {
   ChatWindow *chat_window_;
   QStackedWidget *middle_stack_;
   QTimer *request_timer_;
+  QTimer *presence_timer_;
 };

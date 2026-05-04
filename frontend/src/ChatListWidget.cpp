@@ -19,6 +19,7 @@ constexpr int kTargetUserIdRole = Qt::UserRole + 1;
 constexpr int kOnlineRole = Qt::UserRole + 2;
 constexpr int kLastMessageRole = Qt::UserRole + 3;
 constexpr int kLastMessageTimeRole = Qt::UserRole + 4;
+constexpr int kUnreadCountRole = Qt::UserRole + 5;
 
 bool IsOnlineValue(const QJsonValue &value) {
   if (value.isBool()) {
@@ -157,6 +158,11 @@ ChatListWidget::ChatListWidget(QWidget *parent) : QWidget(parent) {
 void ChatListWidget::loadConversations() {
   session_list_->clear();
   friend_nickname_cache_.clear();
+  friend_online_cache_.clear();
+  refreshConversations();
+}
+
+void ChatListWidget::refreshConversations() {
   ApiClient::instance()->get(
       "/api/v1/friends", this,
       [this](const QJsonObject &response) {
@@ -168,10 +174,39 @@ void ChatListWidget::loadConversations() {
           if (user_id > 0 && !nickname.isEmpty()) {
             friend_nickname_cache_.insert(user_id, nickname);
           }
+          if (user_id > 0) {
+            friend_online_cache_.insert(user_id, IsOnline(item));
+          }
         }
         FetchConversations();
       },
       [this]() { FetchConversations(); });
+}
+
+void ChatListWidget::refreshOnlineStatuses() {
+  ApiClient::instance()->get("/api/v1/friends", this,
+                             [this](const QJsonObject &response) {
+                               const QJsonArray friends =
+                                   response.value("data").toArray();
+                               for (const QJsonValue &value : friends) {
+                                 const QJsonObject item = value.toObject();
+                                 const int user_id =
+                                     item.value("userId").toInt();
+                                 if (user_id <= 0) {
+                                   continue;
+                                 }
+                                 const QString nickname =
+                                     item.value("nickname").toString();
+                                 if (!nickname.isEmpty()) {
+                                   friend_nickname_cache_.insert(user_id,
+                                                                 nickname);
+                                 }
+                                 const bool is_online = IsOnline(item);
+                                 friend_online_cache_.insert(user_id,
+                                                             is_online);
+                                 ApplyOnlineStatus(user_id, is_online);
+                               }
+                             });
 }
 
 void ChatListWidget::FetchConversations() {
@@ -195,7 +230,8 @@ void ChatListWidget::FetchConversations() {
           AddConversation(target_user_id, DisplayNameForConversation(item),
                           item.value("lastMessage").toString(),
                           item.value("lastMessageTime").toString(),
-                          unread_count, IsOnline(item));
+                          unread_count,
+                          OnlineStateForConversation(target_user_id, item));
         }
       });
 }
@@ -245,6 +281,7 @@ void ChatListWidget::updateConversationPreview(int target_user_id,
     moved_item->setData(kOnlineRole, is_online);
     moved_item->setData(kLastMessageRole, content);
     moved_item->setData(kLastMessageTimeRole, created_at);
+    moved_item->setData(kUnreadCountRole, 0);
     auto *widget = new SessionItemWidget(display_name, FormatTime(created_at),
                                          content, 0, is_online, session_list_);
     session_list_->insertItem(0, moved_item);
@@ -264,6 +301,8 @@ void ChatListWidget::AddConversation(int target_user_id,
     if (existing_item->data(kTargetUserIdRole).toInt() != target_user_id) {
       continue;
     }
+    const bool online_changed =
+        existing_item->data(kOnlineRole).toBool() != is_online;
     QWidget *old_widget = session_list_->itemWidget(existing_item);
     session_list_->removeItemWidget(existing_item);
     if (old_widget != nullptr) {
@@ -276,7 +315,11 @@ void ChatListWidget::AddConversation(int target_user_id,
     existing_item->setData(kOnlineRole, is_online);
     existing_item->setData(kLastMessageRole, last_message);
     existing_item->setData(kLastMessageTimeRole, last_message_time);
+    existing_item->setData(kUnreadCountRole, unread_count);
     session_list_->setItemWidget(existing_item, widget);
+    if (online_changed) {
+      emit onlineStatusChanged(target_user_id, is_online);
+    }
     return;
   }
 
@@ -289,6 +332,7 @@ void ChatListWidget::AddConversation(int target_user_id,
   item->setData(kOnlineRole, is_online);
   item->setData(kLastMessageRole, last_message);
   item->setData(kLastMessageTimeRole, last_message_time);
+  item->setData(kUnreadCountRole, unread_count);
   item->setSizeHint({300, 70});
   session_list_->addItem(item);
   session_list_->setItemWidget(item, widget);
@@ -330,7 +374,20 @@ void ChatListWidget::ClearUnreadBadge(QListWidgetItem *item) {
   item->setData(kOnlineRole, is_online);
   item->setData(kLastMessageRole, last_message);
   item->setData(kLastMessageTimeRole, last_message_time);
+  item->setData(kUnreadCountRole, 0);
   session_list_->setItemWidget(item, widget);
+}
+
+void ChatListWidget::clearUnreadForConversation(int target_user_id) {
+  for (int i = 0; i < session_list_->count(); ++i) {
+    QListWidgetItem *item = session_list_->item(i);
+    if (item->data(kTargetUserIdRole).toInt() == target_user_id) {
+      ClearUnreadBadge(item);
+      return;
+    }
+  }
+  read_conversation_ids_.insert(target_user_id);
+  MarkConversationRead(target_user_id);
 }
 
 void ChatListWidget::MarkConversationRead(int target_user_id) {
@@ -365,4 +422,28 @@ QString ChatListWidget::FormatTime(const QString &raw_time) const {
     return date_time.time().toString("HH:mm");
   }
   return raw_time.left(5);
+}
+
+bool ChatListWidget::OnlineStateForConversation(
+    int target_user_id, const QJsonObject &item) const {
+  const bool conversation_online = IsOnline(item);
+  if (friend_online_cache_.contains(target_user_id)) {
+    return friend_online_cache_.value(target_user_id) || conversation_online;
+  }
+  return conversation_online;
+}
+
+void ChatListWidget::ApplyOnlineStatus(int target_user_id, bool is_online) {
+  for (int i = 0; i < session_list_->count(); ++i) {
+    QListWidgetItem *item = session_list_->item(i);
+    if (item->data(kTargetUserIdRole).toInt() != target_user_id) {
+      continue;
+    }
+
+    AddConversation(target_user_id, item->data(Qt::DisplayRole).toString(),
+                    item->data(kLastMessageRole).toString(),
+                    item->data(kLastMessageTimeRole).toString(),
+                    item->data(kUnreadCountRole).toInt(), is_online);
+    return;
+  }
 }

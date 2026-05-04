@@ -46,11 +46,17 @@ ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
   setObjectName("chatWindow");
 
   auto *root_layout = new QVBoxLayout(this);
+  message_refresh_timer_ = new QTimer(this);
+  message_refresh_timer_->setInterval(2000);
+
   root_layout->setContentsMargins(0, 0, 0, 0);
   root_layout->setSpacing(0);
   root_layout->addWidget(CreateTitleBar());
   root_layout->addWidget(CreateMessageArea(), 1);
   root_layout->addWidget(CreateInputArea());
+
+  connect(message_refresh_timer_, &QTimer::timeout, this,
+          &ChatWindow::RefreshCurrentMessages);
 }
 
 void ChatWindow::loadMessages(int target_user_id, const QString &target_username,
@@ -58,32 +64,24 @@ void ChatWindow::loadMessages(int target_user_id, const QString &target_username
   current_target_user_id_ = target_user_id;
   current_target_username_ = target_username;
   name_label_->setText(target_username);
+  updateOnlineStatus(target_user_id, is_online);
+
+  message_request_pending_ = false;
+  rendered_message_keys_.clear();
+  last_rendered_minute_.clear();
+  RemoveAllBubbles();
+  FetchMessages(true);
+  message_refresh_timer_->start();
+}
+
+void ChatWindow::updateOnlineStatus(int target_user_id, bool is_online) {
+  if (target_user_id != current_target_user_id_) {
+    return;
+  }
   online_dot_->setObjectName(is_online ? "onlineDot" : "offlineDot");
   online_dot_->setStyleSheet(OnlineDotStyle(is_online));
   online_dot_->style()->unpolish(online_dot_);
   online_dot_->style()->polish(online_dot_);
-
-  RemoveAllBubbles();
-  const QString path = QStringLiteral(
-                           "/api/v1/messages?targetUserId=%1&page=1&pageSize=20")
-                           .arg(target_user_id);
-  ApiClient::instance()->get(path, this, [this](const QJsonObject &response) {
-    const QJsonArray messages =
-        response.value("data").toObject().value("list").toArray();
-    QString last_minute;
-    for (const QJsonValue &value : messages) {
-      const QJsonObject message = value.toObject();
-      const QString created_at = message.value("createdAt").toString();
-      const QString minute = FormatTime(created_at);
-      if (minute != last_minute) {
-        AddTimestamp(minute);
-        last_minute = minute;
-      }
-      AddMessage(message.value("content").toString(),
-                 message.value("isSelf").toBool());
-    }
-    ScrollToBottom();
-  });
 }
 
 QWidget *ChatWindow::CreateTitleBar() {
@@ -191,6 +189,74 @@ void ChatWindow::AddMessage(const QString &text, bool sent_by_me) {
   ScrollToBottom();
 }
 
+void ChatWindow::FetchMessages(bool full_refresh) {
+  if (current_target_user_id_ <= 0 || message_request_pending_) {
+    return;
+  }
+
+  const int target_user_id = current_target_user_id_;
+  message_request_pending_ = true;
+  const QString path = QStringLiteral(
+                           "/api/v1/messages?targetUserId=%1&page=1&pageSize=50")
+                           .arg(target_user_id);
+  ApiClient::instance()->get(
+      path, this,
+      [this, target_user_id, full_refresh](const QJsonObject &response) {
+        message_request_pending_ = false;
+        if (target_user_id != current_target_user_id_) {
+          return;
+        }
+        if (full_refresh) {
+          rendered_message_keys_.clear();
+          last_rendered_minute_.clear();
+          RemoveAllBubbles();
+        }
+
+        const QJsonArray messages =
+            response.value("data").toObject().value("list").toArray();
+        for (const QJsonValue &value : messages) {
+          AppendMessage(value.toObject(), !full_refresh);
+        }
+        ScrollToBottom();
+      },
+      [this]() { message_request_pending_ = false; });
+}
+
+void ChatWindow::AppendMessage(const QJsonObject &message,
+                               bool notify_new_message) {
+  const QString key = MessageKey(message);
+  if (rendered_message_keys_.contains(key)) {
+    return;
+  }
+
+  const QString created_at = message.value("createdAt").toString();
+  const QString minute = FormatTime(created_at);
+  if (!minute.isEmpty() && minute != last_rendered_minute_) {
+    AddTimestamp(minute);
+    last_rendered_minute_ = minute;
+  }
+
+  const QString content = message.value("content").toString();
+  const bool is_self = message.value("isSelf").toBool();
+  rendered_message_keys_.insert(key);
+  AddMessage(content, is_self);
+  if (notify_new_message && !is_self) {
+    emit messageReceived(current_target_user_id_, content, created_at);
+  }
+}
+
+QString ChatWindow::MessageKey(const QJsonObject &message) const {
+  const int message_id = message.value("messageId").toInt();
+  if (message_id > 0) {
+    return QStringLiteral("id:%1").arg(message_id);
+  }
+  return QStringLiteral("fallback:%1:%2:%3")
+      .arg(message.value("createdAt").toString(),
+           message.value("isSelf").toBool() ? QStringLiteral("1")
+                                            : QStringLiteral("0"),
+           message.value("content").toString());
+}
+
 void ChatWindow::RemoveAllBubbles() {
   while (message_layout_->count() > 1) {
     QLayoutItem *item = message_layout_->takeAt(0);
@@ -218,8 +284,13 @@ void ChatWindow::HandleSend() {
       [this, text](const QJsonObject &response) {
         const QString created_at =
             response.value("data").toObject().value("createdAt").toString();
-        AddTimestamp(FormatTime(created_at));
-        AddMessage(text, true);
+        QJsonObject message;
+        message.insert("messageId",
+                       response.value("data").toObject().value("messageId"));
+        message.insert("content", text);
+        message.insert("createdAt", created_at);
+        message.insert("isSelf", true);
+        AppendMessage(message, false);
         message_input_->clear();
         send_button_->setEnabled(true);
         emit messageSent(current_target_user_id_, text, created_at);
@@ -228,6 +299,10 @@ void ChatWindow::HandleSend() {
         send_button_->setEnabled(true);
         QMessageBox::warning(this, QString(), SendFailedText());
       });
+}
+
+void ChatWindow::RefreshCurrentMessages() {
+  FetchMessages(false);
 }
 
 void ChatWindow::ScrollToBottom() {

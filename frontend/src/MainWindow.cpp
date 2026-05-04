@@ -65,6 +65,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   chat_window_ = new ChatWindow(splitter);
   middle_stack_ = new QStackedWidget(splitter);
   request_timer_ = new QTimer(this);
+  presence_timer_ = new QTimer(this);
 
   middle_stack_->addWidget(chat_list_widget_);
   middle_stack_->addWidget(friend_list_widget_);
@@ -98,8 +99,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
           &NavBar::setFriendBadge);
   connect(chat_window_, &ChatWindow::messageSent, chat_list_widget_,
           &ChatListWidget::updateConversationPreview);
+  connect(chat_window_, &ChatWindow::messageReceived, chat_list_widget_,
+          &ChatListWidget::updateConversationPreview);
+  connect(chat_window_, &ChatWindow::messageReceived, chat_list_widget_,
+          &ChatListWidget::clearUnreadForConversation);
+  connect(chat_list_widget_, &ChatListWidget::onlineStatusChanged,
+          chat_window_, &ChatWindow::updateOnlineStatus);
   connect(request_timer_, &QTimer::timeout, this,
           &MainWindow::RefreshFriendRequests);
+  connect(presence_timer_, &QTimer::timeout, this,
+          &MainWindow::RefreshPresence);
 
   nav_bar_->setCurrentIndex(0);
   middle_stack_->setCurrentIndex(0);
@@ -138,6 +147,7 @@ void MainWindow::initializeSession() {
   chat_list_widget_->loadConversations();
   friend_list_widget_->loadRequests();
   request_timer_->start(30000);
+  presence_timer_->start(5000);
 }
 
 void MainWindow::OpenAddFriendDialog() {
@@ -185,6 +195,13 @@ void MainWindow::OpenConversation(int target_user_id,
 
 void MainWindow::RefreshFriendRequests() {
   friend_list_widget_->loadRequests();
+}
+
+void MainWindow::RefreshPresence() {
+  chat_list_widget_->refreshConversations();
+  if (middle_stack_->currentIndex() == 1) {
+    friend_list_widget_->loadFriends();
+  }
 }
 
 void MainWindow::SwitchMiddlePanel(int index) {

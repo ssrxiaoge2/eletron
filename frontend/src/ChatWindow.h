@@ -1,11 +1,15 @@
 #pragma once
 
+#include <QtCore/QSet>
+#include <QtCore/QString>
 #include <QtWidgets/QWidget>
 
+class QJsonObject;
 class QScrollArea;
 class QLabel;
 class QPushButton;
 class QTextEdit;
+class QTimer;
 class QVBoxLayout;
 
 class ChatWindow : public QWidget {
@@ -15,10 +19,13 @@ class ChatWindow : public QWidget {
   explicit ChatWindow(QWidget *parent = nullptr);
   void loadMessages(int target_user_id, const QString &target_username,
                     bool is_online);
+  void updateOnlineStatus(int target_user_id, bool is_online);
 
- signals:
+signals:
   void messageSent(int target_user_id, const QString &content,
                    const QString &created_at);
+  void messageReceived(int target_user_id, const QString &content,
+                       const QString &created_at);
 
  private:
   QWidget *CreateTitleBar();
@@ -26,8 +33,12 @@ class ChatWindow : public QWidget {
   QWidget *CreateInputArea();
   void AddTimestamp(const QString &time_text);
   void AddMessage(const QString &text, bool sent_by_me);
+  void FetchMessages(bool full_refresh);
+  void AppendMessage(const QJsonObject &message, bool notify_new_message);
+  QString MessageKey(const QJsonObject &message) const;
   void RemoveAllBubbles();
   void HandleSend();
+  void RefreshCurrentMessages();
   void ScrollToBottom();
   QString FormatTime(const QString &raw_time) const;
 
@@ -39,4 +50,8 @@ class ChatWindow : public QWidget {
   QPushButton *send_button_;
   QLabel *name_label_;
   QLabel *online_dot_;
+  QTimer *message_refresh_timer_;
+  QSet<QString> rendered_message_keys_;
+  QString last_rendered_minute_;
+  bool message_request_pending_ = false;
 };
