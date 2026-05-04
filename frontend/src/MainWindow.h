@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtCore/QString>
 #include <QtWidgets/QMainWindow>
 
 class ChatListWidget;
@@ -18,13 +19,17 @@ class MainWindow : public QMainWindow {
   explicit MainWindow(QWidget *parent = nullptr);
   void initializeSession();
 
+ signals:
+  void accountLoggedOut(const QString &username);
+
  protected:
   void closeEvent(QCloseEvent *event) override;
 
  private:
   void LoadStyleSheet();
   void LoadProfile();
-  void LogoutOnClose();
+  void OfflineOnClose();
+  void LogoutAccount();
   void OpenAddFriendDialog();
   void OpenConversation(int target_user_id, const QString &display_name,
                         bool is_online);

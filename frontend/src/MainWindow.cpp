@@ -75,6 +75,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
   connect(nav_bar_, &NavBar::currentIndexChanged, this,
           &MainWindow::SwitchMiddlePanel);
+  connect(nav_bar_, &NavBar::logoutRequested, this,
+          &MainWindow::LogoutAccount);
   connect(chat_list_widget_, &ChatListWidget::conversationSelected,
           chat_window_, &ChatWindow::loadMessages);
   connect(chat_list_widget_, &ChatListWidget::newConversationRequested, this,
@@ -126,7 +128,7 @@ void MainWindow::LoadProfile() {
 }
 
 void MainWindow::closeEvent(QCloseEvent *event) {
-  LogoutOnClose();
+  OfflineOnClose();
   QMainWindow::closeEvent(event);
 }
 
@@ -141,11 +143,33 @@ void MainWindow::initializeSession() {
   presence_timer_->start(5000);
 }
 
-void MainWindow::LogoutOnClose() {
+void MainWindow::OfflineOnClose() {
   if (!session_initialized_) {
     return;
   }
 
+  request_timer_->stop();
+  presence_timer_->stop();
+  ApiClient::instance()->postBlocking("/api/v1/auth/offline", QJsonObject(),
+                                      1500);
+  ApiClient::instance()->setToken(QString());
+  ApiClient::instance()->releaseUserSessionLock();
+  session_initialized_ = false;
+}
+
+void MainWindow::LogoutAccount() {
+  if (!session_initialized_) {
+    return;
+  }
+
+  const QMessageBox::StandardButton choice = QMessageBox::question(
+      this, QStringLiteral("\u9000\u51fa\u8d26\u53f7"),
+      QStringLiteral("\u786e\u5b9a\u8981\u9000\u51fa\u5f53\u524d\u8d26\u53f7\u5417\uff1f"));
+  if (choice != QMessageBox::Yes) {
+    return;
+  }
+
+  const QString username = ApiClient::instance()->lockedUsername();
   request_timer_->stop();
   presence_timer_->stop();
   ApiClient::instance()->postBlocking("/api/v1/auth/logout", QJsonObject(),
@@ -153,6 +177,8 @@ void MainWindow::LogoutOnClose() {
   ApiClient::instance()->setToken(QString());
   ApiClient::instance()->releaseUserSessionLock();
   session_initialized_ = false;
+  emit accountLoggedOut(username);
+  hide();
 }
 
 void MainWindow::OpenAddFriendDialog() {

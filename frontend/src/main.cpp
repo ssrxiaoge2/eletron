@@ -14,6 +14,13 @@ int main(int argc, char *argv[]) {
     main_window.show();
     login_window.close();
   });
+  QObject::connect(&main_window, &MainWindow::accountLoggedOut,
+                   [&](const QString &username) {
+                     login_window.ResetAfterLogout(username);
+                     login_window.show();
+                     login_window.raise();
+                     login_window.activateWindow();
+                   });
 
   login_window.show();
   return app.exec();

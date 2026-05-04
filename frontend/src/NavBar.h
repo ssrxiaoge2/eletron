@@ -12,8 +12,9 @@ class NavBar : public QWidget {
   void setCurrentIndex(int index);
   void setFriendBadge(int count);
 
- signals:
+signals:
   void currentIndexChanged(int index);
+  void logoutRequested();
 
  private:
   QToolButton *CreateNavButton(const QString &text, bool checked, int index);

@@ -134,6 +134,24 @@ QToolButton#navButton:checked {
   color: #1d6fa4;
 }
 
+QMenu#settingsMenu {
+  background: #ffffff;
+  border: 1px solid #dddddd;
+  color: #222222;
+  padding: 6px;
+}
+
+QMenu#settingsMenu::item {
+  min-width: 110px;
+  padding: 7px 18px;
+  border-radius: 4px;
+}
+
+QMenu#settingsMenu::item:selected {
+  background: #e8f2fb;
+  color: #1d6fa4;
+}
+
 QWidget#chatListPane {
   background: #ffffff;
   border-right: 1px solid #e8e8e8;

@@ -18,6 +18,7 @@ class ApiClient : public QObject {
 
   void setToken(const QString &token);
   QString token() const;
+  QString lockedUsername() const;
   bool acquireUserSessionLock(const QString &username);
   void releaseUserSessionLock();
 

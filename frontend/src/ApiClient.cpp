@@ -32,6 +32,10 @@ QString ApiClient::token() const {
   return token_;
 }
 
+QString ApiClient::lockedUsername() const {
+  return locked_username_;
+}
+
 bool ApiClient::acquireUserSessionLock(const QString &username) {
   if (username.isEmpty()) {
     return false;

@@ -14,6 +14,7 @@ class LoginWindow : public QWidget {
 
  public:
   explicit LoginWindow(QWidget *parent = nullptr);
+  void ResetAfterLogout(const QString &username);
 
  signals:
   void loginSucceeded();

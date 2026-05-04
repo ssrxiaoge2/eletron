@@ -309,6 +309,16 @@ void LoginWindow::HandleLogin() {
   auth_client_->Login(username, password);
 }
 
+void LoginWindow::ResetAfterLogout(const QString &username) {
+  if (!username.isEmpty()) {
+    RemoveCachedToken(username);
+    username_combo_->setCurrentText(username);
+  }
+  password_edit_->clear();
+  SetAuthPending(false);
+  ShowPasswordLogin();
+}
+
 void LoginWindow::HandleCachedLogin() {
   const QString username = CurrentCachedUsername();
   const QString token = CachedToken(username);
