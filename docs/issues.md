@@ -1,5 +1,16 @@
 # Issues
 
+## [FE-BE-AUTH-001] Login should reject already-online user
+
+- Severity: P1 functional bug
+- Owner: backend
+- Frontend symptom: the same account can log in again while already online, which causes session and UI state bugs.
+- Current frontend handling: if `POST /api/v1/auth/login` returns HTTP `409`, code `1005`/`1006`, or a message containing "already logged/login/online", the login window shows `当前用户已登录` and blocks entering the main window.
+- Backend request:
+  - In `POST /api/v1/auth/login`, before creating a new session, check whether the target user is already online.
+  - If already online, do not create another session and return a documented conflict response, preferably HTTP `409` with `code: 1005` and `message: "current user already logged in"`.
+  - Write the final error contract into `docs/api.md`.
+
 ## [FE-BE-ONLINE-001] Window close needs logout/offline API
 
 - Severity: P1 functional bug

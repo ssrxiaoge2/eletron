@@ -26,6 +26,21 @@ QString CredentialErrorMessage() {
   return QStringLiteral("\u8d26\u53f7\u6216\u5bc6\u7801\u9519\u8bef");
 }
 
+QString AlreadyLoggedInMessage() {
+  return QStringLiteral("\u5f53\u524d\u7528\u6237\u5df2\u767b\u5f55");
+}
+
+bool IsAlreadyLoggedInError(int status_code, int code,
+                            const QString &message) {
+  const QString lower_message = message.toLower();
+  return status_code == 409 || code == 1005 || code == 1006 ||
+         lower_message.contains("already logged") ||
+         lower_message.contains("already login") ||
+         lower_message.contains("already online") ||
+         lower_message.contains("user online") ||
+         message.contains(QStringLiteral("\u5df2\u767b\u5f55"));
+}
+
 QString SessionErrorMessage() {
   return QStringLiteral(
       "\u767b\u5f55\u72b6\u6001\u5df2\u8fc7\u671f\uff0c\u8bf7\u4f7f"
@@ -122,6 +137,11 @@ void AuthClient::HandleLoginReply(QNetworkReply *reply) {
 
   if (status_code == 503 || IsDatabaseError(code, message)) {
     emit loginFailed(DatabaseErrorMessage());
+    return;
+  }
+
+  if (IsAlreadyLoggedInError(status_code, code, message)) {
+    emit loginFailed(AlreadyLoggedInMessage());
     return;
   }
 

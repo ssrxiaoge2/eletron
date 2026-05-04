@@ -13,6 +13,7 @@ MessageBubble::MessageBubble(const QString &text, bool sent_by_me,
   auto *bubble = new QLabel(text, this);
 
   setObjectName(sent_by_me ? "sentMessageRow" : "receivedMessageRow");
+  setAttribute(Qt::WA_StyledBackground, true);
   avatar->setObjectName("messageAvatar");
   bubble->setObjectName(sent_by_me ? "sentBubble" : "receivedBubble");
   avatar->setAlignment(Qt::AlignCenter);

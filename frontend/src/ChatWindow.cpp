@@ -123,6 +123,7 @@ QWidget *ChatWindow::CreateMessageArea() {
   message_scroll_area_->setObjectName("messageScrollArea");
   message_scroll_area_->setWidgetResizable(true);
   message_scroll_area_->setFrameShape(QFrame::NoFrame);
+  message_scroll_area_->viewport()->setObjectName("messageViewport");
   message_scroll_area_->setWidget(container);
 
   container->setObjectName("messageContainer");
@@ -307,10 +308,13 @@ void ChatWindow::RefreshCurrentMessages() {
 }
 
 void ChatWindow::ScrollToBottom() {
-  QTimer::singleShot(0, this, [this]() {
+  auto scroll_to_bottom = [this]() {
     message_scroll_area_->verticalScrollBar()->setValue(
         message_scroll_area_->verticalScrollBar()->maximum());
-  });
+  };
+  QTimer::singleShot(0, this, scroll_to_bottom);
+  QTimer::singleShot(50, this, scroll_to_bottom);
+  QTimer::singleShot(150, this, scroll_to_bottom);
 }
 
 QString ChatWindow::FormatTime(const QString &raw_time) const {

@@ -328,7 +328,13 @@ QToolButton#chatToolButton:hover {
 }
 
 QScrollArea#messageScrollArea,
+QWidget#messageViewport,
 QWidget#messageContainer {
+  background: #ffffff;
+}
+
+QWidget#sentMessageRow,
+QWidget#receivedMessageRow {
   background: #ffffff;
 }
 
