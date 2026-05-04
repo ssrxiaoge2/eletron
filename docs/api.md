@@ -163,6 +163,7 @@ Authorization: Bearer {token}
 ```
 
 功能：返回当前登录用户的全部会话，按最后一条消息时间倒序排列。
+`isOnline` 固定返回 JSON 布尔值：`true` 表示在线，`false` 表示离线或隐身。
 
 成功响应：HTTP `200`
 
@@ -441,6 +442,7 @@ Authorization: Bearer {token}
 ```
 
 成功响应：HTTP `200`
+`isOnline` 固定返回 JSON 布尔值：`true` 表示在线，`false` 表示离线或隐身。
 
 ```json
 {
@@ -572,6 +574,7 @@ Authorization: Bearer {token}
 ```
 
 成功响应：HTTP `200`
+`isOnline` 固定返回 JSON 布尔值：`true` 表示在线，`false` 表示离线或隐身。
 
 ```json
 {
