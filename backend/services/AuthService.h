@@ -16,6 +16,7 @@ class AuthService final {
 public:
     AuthResult registerUser(const QString& username, const QString& password) const;
     AuthResult login(const QString& username, const QString& password) const;
+    AuthResult offline(const QString& bearerToken) const;
     AuthResult logout(const QString& bearerToken) const;
 
 private:

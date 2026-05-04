@@ -135,6 +135,47 @@ AuthResult AuthService::login(const QString& username, const QString& password) 
     return result;
 }
 
+AuthResult AuthService::offline(const QString& bearerToken) const
+{
+    AuthResult result;
+    result.httpStatus = 200;
+
+    const auto token = extractBearerToken(bearerToken);
+    if (token.isEmpty()) {
+        return result;
+    }
+
+    auto db = Core::Database::getConnection();
+    if (!db.isValid() || !db.isOpen()) {
+        return error(503, 2001, QStringLiteral("database_unavailable"));
+    }
+
+    QSqlQuery findQuery(db);
+    findQuery.prepare(QStringLiteral(
+        "SELECT user_id FROM sessions "
+        "WHERE token_hash = :token_hash "
+        "AND expired_at > UTC_TIMESTAMP() "
+        "AND is_deleted = 0 "
+        "LIMIT 1"));
+    findQuery.bindValue(QStringLiteral(":token_hash"), Core::JwtHelper::sha256Hex(token));
+    if (!findQuery.exec()) {
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+    if (!findQuery.next()) {
+        return result;
+    }
+
+    QSqlQuery statusQuery(db);
+    statusQuery.prepare(QStringLiteral(
+        "UPDATE users SET status = 0 WHERE id = :user_id AND is_deleted = 0"));
+    statusQuery.bindValue(QStringLiteral(":user_id"), findQuery.value(QStringLiteral("user_id")).toLongLong());
+    if (!statusQuery.exec()) {
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
+    return result;
+}
+
 AuthResult AuthService::logout(const QString& bearerToken) const
 {
     AuthResult result;

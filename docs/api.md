@@ -10,6 +10,7 @@
 | POST | `/api/v1/auth/register` | 用户注册 |
 | POST | `/api/v1/auth/login` | 用户登录 |
 | POST | `/api/v1/auth/logout` | 用户登出 |
+| POST | `/api/v1/auth/offline` | 用户仅下线，保留快捷登录凭证 |
 | GET | `/api/v1/conversations` | 获取当前用户会话列表 |
 | POST | `/api/v1/conversations` | 点击好友发起聊天 |
 | GET | `/api/v1/messages` | 分页获取历史消息 |
@@ -136,6 +137,25 @@ Authorization: Bearer {token}
 ```
 
 行为：同一事务中将当前 session 失效，并把当前用户 `users.status` 更新为 `0`。接口支持重复调用；token 已失效或缺失时也返回成功，方便前端关闭窗口时静默调用。
+
+成功响应：HTTP `200`
+
+```json
+{
+  "code": 0,
+  "message": "ok"
+}
+```
+
+## POST `/api/v1/auth/offline`
+
+Header:
+
+```http
+Authorization: Bearer {token}
+```
+
+行为：仅将当前用户 `users.status` 更新为 `0`，不会删除或失效当前 `session`，用于前端普通关闭主窗口时让用户下线，同时保留本机快捷登录凭证。接口支持重复调用；token 缺失、已失效或找不到对应 session 时也返回成功。
 
 成功响应：HTTP `200`
 

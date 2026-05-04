@@ -117,6 +117,13 @@ void AuthRouter::registerRoutes(QHttpServer& server)
                      const Backend::Services::AuthService service;
                      return serviceResponse(service.logout(authorizationHeader(request)));
                  });
+
+    server.route(QStringLiteral("/api/v1/auth/offline"),
+                 QHttpServerRequest::Method::Post,
+                 [](const QHttpServerRequest& request) {
+                     const Backend::Services::AuthService service;
+                     return serviceResponse(service.offline(authorizationHeader(request)));
+                 });
 }
 
 } // namespace Backend::Routers

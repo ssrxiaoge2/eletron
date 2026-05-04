@@ -2,6 +2,7 @@
 
 ## 2026-05-01
 
+- 新增 `POST /api/v1/auth/offline`，用于普通关闭窗口时仅更新 `users.status = 0`，保留当前有效 session/token 作为下次快捷登录凭证。
 - 修复同一账号已有有效 session 时仍可重复登录的问题；`POST /api/v1/auth/login` 在存在未过期 session 时返回 HTTP 409、`code=1005`，且不创建新 session，避免 `users.status` 残留导致缓存登录不可用。
 - 新增 `POST /api/v1/auth/logout`，支持关闭窗口时失效当前 session 并将用户在线状态更新为离线，重复调用返回成功。
 - 修复缓存 token 直接进入主界面时在线状态不刷新的问题；现在有效 token 访问资料、好友、会话、消息等接口时也会刷新 `users.status = 1`。
