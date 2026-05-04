@@ -1,5 +1,17 @@
 # Issues
 
+## [FE-BE-AUTH-002] Quick login conflicts with logout invalidating token
+
+- Severity: P1 functional bug
+- Owner: backend
+- Frontend symptom: after the user logs in, closes the main window, and restarts the app, quick login reports that authentication is expired.
+- Current frontend handling: on the same machine, the frontend now holds a per-user lock after login, so another frontend process trying to log in with the same username shows `当前用户已登录` before entering the main window. If `POST /api/v1/auth/login` returns `code: 1005` or an equivalent already-online message, the login window also shows `当前用户已登录`.
+- Current API conflict: `POST /api/v1/auth/logout` is required on window close to mark the user offline, but `docs/api.md` says logout invalidates the current session. A cached session token cannot both be invalidated on close and remain usable for quick login on next startup.
+- Backend request:
+  - Provide a documented way to mark the user offline while keeping the cached quick-login credential reusable, or add a refresh/quick-login credential that survives logout and can issue a new session token.
+  - Keep `POST /api/v1/auth/logout` for explicit logout if session invalidation is still needed.
+- Frontend follow-up: after the API contract is updated, the frontend can call the offline-preserving endpoint on normal window close and keep using the cached quick-login credential on next startup.
+
 ## [FE-BE-AUTH-001] Login should reject already-online user
 
 - Severity: P1 functional bug

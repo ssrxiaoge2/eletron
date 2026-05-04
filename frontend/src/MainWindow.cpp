@@ -151,6 +151,7 @@ void MainWindow::LogoutOnClose() {
   ApiClient::instance()->postBlocking("/api/v1/auth/logout", QJsonObject(),
                                       1500);
   ApiClient::instance()->setToken(QString());
+  ApiClient::instance()->releaseUserSessionLock();
   session_initialized_ = false;
 }
 

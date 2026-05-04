@@ -1,7 +1,10 @@
 #include "ApiClient.h"
 
+#include <QtCore/QCryptographicHash>
+#include <QtCore/QDir>
 #include <QtCore/QEventLoop>
 #include <QtCore/QJsonDocument>
+#include <QtCore/QLockFile>
 #include <QtCore/QTimer>
 #include <QtCore/qscopeguard.h>
 #include <QtNetwork/QNetworkReply>
@@ -10,6 +13,7 @@
 namespace {
 
 constexpr char kBaseUrl[] = "http://127.0.0.1:8000";
+constexpr char kLockFilePrefix[] = "feige-im-user-";
 
 }  // namespace
 
@@ -26,6 +30,41 @@ void ApiClient::setToken(const QString &token) {
 
 QString ApiClient::token() const {
   return token_;
+}
+
+bool ApiClient::acquireUserSessionLock(const QString &username) {
+  if (username.isEmpty()) {
+    return false;
+  }
+  if (user_session_lock_ != nullptr && locked_username_ == username &&
+      user_session_lock_->isLocked()) {
+    return true;
+  }
+
+  releaseUserSessionLock();
+  const QByteArray key =
+      QCryptographicHash::hash(username.toUtf8(), QCryptographicHash::Sha256)
+          .toHex();
+  const QString lock_path = QDir::temp().filePath(
+      QString::fromLatin1(kLockFilePrefix) + QString::fromLatin1(key) +
+      ".lock");
+  auto lock = std::make_unique<QLockFile>(lock_path);
+  lock->setStaleLockTime(30000);
+  if (!lock->tryLock(0)) {
+    return false;
+  }
+
+  locked_username_ = username;
+  user_session_lock_ = std::move(lock);
+  return true;
+}
+
+void ApiClient::releaseUserSessionLock() {
+  if (user_session_lock_ != nullptr) {
+    user_session_lock_->unlock();
+    user_session_lock_.reset();
+  }
+  locked_username_.clear();
 }
 
 void ApiClient::get(const QString &path, const QObject *receiver,

@@ -81,6 +81,12 @@ QJsonObject ResponseData(const QJsonObject &object) {
 }
 
 void AuthClient::Login(const QString &username, const QString &password) {
+  if (!ApiClient::instance()->acquireUserSessionLock(username)) {
+    emit loginFailed(AlreadyLoggedInMessage());
+    return;
+  }
+  pending_login_username_ = username;
+
   QNetworkRequest request{QUrl(kLoginUrl)};
   request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
@@ -138,22 +144,26 @@ void AuthClient::HandleLoginReply(QNetworkReply *reply) {
   const QJsonObject data = ResponseData(object);
 
   if (reply->error() != QNetworkReply::NoError && status_code == 0) {
+    ApiClient::instance()->releaseUserSessionLock();
     emit loginFailed(DatabaseErrorMessage());
     return;
   }
 
   if (status_code == 503 || IsDatabaseError(code, message)) {
+    ApiClient::instance()->releaseUserSessionLock();
     emit loginFailed(DatabaseErrorMessage());
     return;
   }
 
   if (IsAlreadyLoggedInError(status_code, code, message)) {
+    ApiClient::instance()->releaseUserSessionLock();
     emit loginFailed(AlreadyLoggedInMessage());
     return;
   }
 
   if (status_code == 401 || status_code == 403 || status_code == 400 ||
       code != 0) {
+    ApiClient::instance()->releaseUserSessionLock();
     emit loginFailed(CredentialErrorMessage());
     return;
   }
@@ -166,6 +176,7 @@ void AuthClient::HandleLoginReply(QNetworkReply *reply) {
   }
 
   emit loginFailed(CredentialErrorMessage());
+  ApiClient::instance()->releaseUserSessionLock();
 }
 
 void AuthClient::HandleQuickLoginReply(QNetworkReply *reply,
@@ -182,6 +193,11 @@ void AuthClient::HandleQuickLoginReply(QNetworkReply *reply,
 
   if (reply->error() == QNetworkReply::NoError && code == 0) {
     const QJsonObject data = ResponseData(object);
+    const QString username = data.value("username").toString();
+    if (!ApiClient::instance()->acquireUserSessionLock(username)) {
+      emit loginFailed(AlreadyLoggedInMessage());
+      return;
+    }
     emit loginSucceeded(data.value("username").toString(),
                         data.value("nickname").toString(), token);
     return;
@@ -236,6 +252,10 @@ void AuthClient::HandleRegisterReply(QNetworkReply *reply) {
     ApiClient::instance()->setToken(token);
     const QString username =
         data.value("username").toString(pending_register_username_);
+    if (!ApiClient::instance()->acquireUserSessionLock(username)) {
+      emit registerFailed(AlreadyLoggedInMessage());
+      return;
+    }
     emit registerSucceeded(username, QString(), token);
     return;
   }

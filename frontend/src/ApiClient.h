@@ -1,10 +1,12 @@
 #pragma once
 
 #include <QtCore/QJsonObject>
+#include <QtCore/QLockFile>
 #include <QtCore/QObject>
 #include <QtNetwork/QNetworkAccessManager>
 
 #include <functional>
+#include <memory>
 
 class QNetworkReply;
 
@@ -16,6 +18,8 @@ class ApiClient : public QObject {
 
   void setToken(const QString &token);
   QString token() const;
+  bool acquireUserSessionLock(const QString &username);
+  void releaseUserSessionLock();
 
   void get(const QString &path, const QObject *receiver,
            std::function<void(const QJsonObject &)> on_success,
@@ -39,5 +43,7 @@ class ApiClient : public QObject {
                    std::function<void()> on_failure);
 
   QString token_;
+  QString locked_username_;
+  std::unique_ptr<QLockFile> user_session_lock_;
   QNetworkAccessManager network_manager_;
 };
