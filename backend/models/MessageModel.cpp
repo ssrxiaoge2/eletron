@@ -108,7 +108,7 @@ bool MessageModel::fetchConversations(qint64 userId, QJsonArray* conversations)
         QSqlQuery detailQuery(db);
         detailQuery.prepare(QStringLiteral(
             "SELECT u.id AS target_id, u.username, u.avatar, u.status, "
-            "m.content, %1 AS last_message_time, "
+            "m.content, m.type, %1 AS last_message_time, "
             "(SELECT COUNT(*) FROM messages um "
             " WHERE um.sender_id = :target_id "
             " AND um.receiver_id = :user_id "
@@ -139,6 +139,7 @@ bool MessageModel::fetchConversations(qint64 userId, QJsonArray* conversations)
                 { QStringLiteral("targetUsername"), detailQuery.value(QStringLiteral("username")).toString() },
                 { QStringLiteral("targetAvatar"), detailQuery.value(QStringLiteral("avatar")).toString() },
                 { QStringLiteral("lastMessage"), detailQuery.value(QStringLiteral("content")).toString() },
+                { QStringLiteral("lastMessageType"), detailQuery.value(QStringLiteral("type")).toInt() },
                 { QStringLiteral("lastMessageTime"), lastMessageTime },
                 { QStringLiteral("unreadCount"), detailQuery.value(QStringLiteral("unread_count")).toInt() },
                 { QStringLiteral("isOnline"), detailQuery.value(QStringLiteral("status")).toInt() == 1 }

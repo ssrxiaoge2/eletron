@@ -4,9 +4,12 @@
 #include "../models/FileModel.h"
 #include "../models/MessageModel.h"
 
+#include <QBuffer>
+#include <QDebug>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QImage>
 #include <QJsonObject>
 #include <QMimeDatabase>
 
@@ -28,6 +31,21 @@ QString tokenFromBearer(const QString& bearerToken)
 QString thumbnailUrl(qint64 fileId, int type)
 {
     return type == 1 ? QStringLiteral("/api/v1/files/thumbnail/%1").arg(fileId) : QString();
+}
+
+QString imageMimeTypeByPath(const QString& path)
+{
+    const auto suffix = QFileInfo(path).suffix().toLower();
+    if (suffix == QStringLiteral("jpg") || suffix == QStringLiteral("jpeg")) {
+        return QStringLiteral("image/jpeg");
+    }
+    if (suffix == QStringLiteral("png")) {
+        return QStringLiteral("image/png");
+    }
+    if (suffix == QStringLiteral("gif")) {
+        return QStringLiteral("image/gif");
+    }
+    return QStringLiteral("image/png");
 }
 
 } // namespace
@@ -151,6 +169,8 @@ FileBinaryResult FileService::download(const QString& bearerToken, qint64 fileId
 
 FileBinaryResult FileService::thumbnail(const QString& bearerToken, qint64 fileId) const
 {
+    qDebug() << "请求缩略图 fileId：" << fileId;
+
     qint64 userId = 0;
     if (!authenticate(bearerToken, &userId)) {
         return binaryError(401, 1002, QStringLiteral("invalid or expired token"));
@@ -164,15 +184,34 @@ FileBinaryResult FileService::thumbnail(const QString& bearerToken, qint64 fileI
         return binaryError(403, 1003, QStringLiteral("无权访问"));
     }
 
-    QFile diskFile(file.thumbnailPath);
-    if (!diskFile.open(QIODevice::ReadOnly)) {
+    FileBinaryResult result;
+    result.fileName = file.fileName + QStringLiteral(".thumbnail.png");
+
+    qDebug() << "缩略图路径：" << file.thumbnailPath;
+    qDebug() << "文件存在：" << QFile::exists(file.thumbnailPath);
+
+    if (!file.thumbnailPath.isEmpty() && QFile::exists(file.thumbnailPath)) {
+        QFile diskFile(file.thumbnailPath);
+        if (!diskFile.open(QIODevice::ReadOnly)) {
+            return binaryError(404, 4002, QStringLiteral("file not found"));
+        }
+        result.data = diskFile.readAll();
+        result.mimeType = imageMimeTypeByPath(file.thumbnailPath);
+        result.fileSize = result.data.size();
+        return result;
+    }
+
+    QImage image(file.storagePath);
+    if (image.isNull()) {
         return binaryError(404, 4002, QStringLiteral("file not found"));
     }
 
-    FileBinaryResult result;
-    result.data = diskFile.readAll();
+    const auto thumb = image.scaled(200, 200, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    QBuffer buffer(&result.data);
+    if (!buffer.open(QIODevice::WriteOnly) || !thumb.save(&buffer, "PNG")) {
+        return binaryError(404, 4002, QStringLiteral("file not found"));
+    }
     result.mimeType = QStringLiteral("image/png");
-    result.fileName = file.fileName + QStringLiteral(".thumbnail.png");
     result.fileSize = result.data.size();
     return result;
 }

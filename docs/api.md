@@ -232,6 +232,7 @@ Authorization: Bearer {token}
       "targetUsername": "user2",
       "targetAvatar": "",
       "lastMessage": "今天晚上一起聊",
+      "lastMessageType": 0,
       "lastMessageTime": "2024-01-01 15:27:00",
       "unreadCount": 0,
       "isOnline": true

@@ -2,6 +2,7 @@
 
 ## 2026-05-01
 
+- 修复文件接口联调问题：会话列表新增 `lastMessageType`，缩略图接口按实际格式返回 `Content-Type`，并在历史缩略图缺失时实时缩放原图返回。
 - 新增文件和图片传输接口：`POST /api/v1/files/upload`、`GET /api/v1/files/download/{fileId}`、`GET /api/v1/files/thumbnail/{fileId}`、`GET /api/v1/files/info/{fileId}`，并补充 `files` 表结构与消息文件 JSON 说明。
 - 新增 `POST /api/v1/auth/offline`，用于普通关闭窗口时仅更新 `users.status = 0`，保留当前有效 session/token 作为下次快捷登录凭证。
 - 修复同一账号已有有效 session 时仍可重复登录的问题；`POST /api/v1/auth/login` 在存在未过期 session 时返回 HTTP 409、`code=1005`，且不创建新 session，避免 `users.status` 残留导致缓存登录不可用。
