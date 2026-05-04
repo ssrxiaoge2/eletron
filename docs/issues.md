@@ -1,5 +1,19 @@
 # Issues
 
+## [FE-BE-ONLINE-001] Window close needs logout/offline API
+
+- Severity: P1 functional bug
+- Owner: backend
+- Frontend symptom: after the desktop main window is closed, other clients still see the user as online.
+- Current frontend limitation: `docs/api.md` has `POST /api/v1/auth/login`, but no logout/offline endpoint. The frontend cannot persistently update `users.status` without a documented backend API.
+- Backend request:
+  - Add `POST /api/v1/auth/logout`.
+  - Header: `Authorization: Bearer {token}`.
+  - Behavior: invalidate/delete the current session and update the current user's `users.status = 0` in the same transaction.
+  - Success response: `{ "code": 0, "message": "ok" }`.
+  - The endpoint should be idempotent enough that repeated close/logout calls do not cause an error visible to the user.
+- Frontend follow-up: after this endpoint is written into `docs/api.md`, `MainWindow::closeEvent` should call `POST /api/v1/auth/logout`, stop polling timers, clear the local token, and then close.
+
 ## 2026-05-01 全模块接口测试
 
 ## [BUG-001] GET /api/v1/user/profile - 用户资料缺少 email 字段
