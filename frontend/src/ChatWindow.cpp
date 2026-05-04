@@ -35,6 +35,11 @@ QString SendFailedText() {
   return QStringLiteral("\u53d1\u9001\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5");
 }
 
+QString OnlineDotStyle(bool is_online) {
+  return QStringLiteral("border-radius: 4px; background: %1;")
+      .arg(is_online ? QStringLiteral("#26c35a") : QStringLiteral("#9a9a9a"));
+}
+
 }  // namespace
 
 ChatWindow::ChatWindow(QWidget *parent) : QWidget(parent) {
@@ -54,6 +59,7 @@ void ChatWindow::loadMessages(int target_user_id, const QString &target_username
   current_target_username_ = target_username;
   name_label_->setText(target_username);
   online_dot_->setObjectName(is_online ? "onlineDot" : "offlineDot");
+  online_dot_->setStyleSheet(OnlineDotStyle(is_online));
   online_dot_->style()->unpolish(online_dot_);
   online_dot_->style()->polish(online_dot_);
 

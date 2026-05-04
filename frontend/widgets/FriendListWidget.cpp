@@ -39,6 +39,11 @@ bool IsOnline(const QJsonObject &item) {
   return IsOnlineValue(item.value("status"));
 }
 
+QString OnlineDotStyle(bool is_online) {
+  return QStringLiteral("border-radius: 4px; background: %1;")
+      .arg(is_online ? QStringLiteral("#26c35a") : QStringLiteral("#9a9a9a"));
+}
+
 class FriendItemWidget : public QWidget {
  public:
   FriendItemWidget(const QString &name, const QString &signature,
@@ -55,6 +60,7 @@ class FriendItemWidget : public QWidget {
     name_label->setObjectName("friendName");
     signature_label->setObjectName("friendSignature");
     online_dot->setObjectName(is_online ? "onlineDot" : "offlineDot");
+    online_dot->setStyleSheet(OnlineDotStyle(is_online));
     avatar->setFixedSize(36, 36);
     avatar->setAlignment(Qt::AlignCenter);
     online_dot->setFixedSize(8, 8);

@@ -38,6 +38,11 @@ bool IsOnline(const QJsonObject &item) {
   return IsOnlineValue(item.value("status"));
 }
 
+QString OnlineDotStyle(bool is_online) {
+  return QStringLiteral("border-radius: 4px; background: %1;")
+      .arg(is_online ? QStringLiteral("#26c35a") : QStringLiteral("#9a9a9a"));
+}
+
 class SessionItemWidget : public QWidget {
  public:
   SessionItemWidget(const QString &name, const QString &time,
@@ -61,6 +66,7 @@ class SessionItemWidget : public QWidget {
     avatar->setObjectName("sessionAvatar");
     online_dot->setObjectName(is_online ? "sessionOnlineDot"
                                         : "sessionOfflineDot");
+    online_dot->setStyleSheet(OnlineDotStyle(is_online));
     name_label->setObjectName("sessionName");
     time_label->setObjectName("sessionTime");
     preview_label->setObjectName("sessionPreview");
@@ -227,9 +233,23 @@ void ChatListWidget::updateConversationPreview(int target_user_id,
     if (item->data(kTargetUserIdRole).toInt() != target_user_id) {
       continue;
     }
-    AddConversation(target_user_id, item->data(Qt::DisplayRole).toString(),
-                    content, created_at, 0, item->data(kOnlineRole).toBool());
-    delete session_list_->takeItem(i);
+    const QString display_name = item->data(Qt::DisplayRole).toString();
+    const bool is_online = item->data(kOnlineRole).toBool();
+    QWidget *old_widget = session_list_->itemWidget(item);
+    session_list_->removeItemWidget(item);
+    if (old_widget != nullptr) {
+      old_widget->deleteLater();
+    }
+    QListWidgetItem *moved_item = session_list_->takeItem(i);
+    moved_item->setData(Qt::DisplayRole, display_name);
+    moved_item->setData(kOnlineRole, is_online);
+    moved_item->setData(kLastMessageRole, content);
+    moved_item->setData(kLastMessageTimeRole, created_at);
+    auto *widget = new SessionItemWidget(display_name, FormatTime(created_at),
+                                         content, 0, is_online, session_list_);
+    session_list_->insertItem(0, moved_item);
+    session_list_->setItemWidget(moved_item, widget);
+    session_list_->setCurrentItem(moved_item);
     return;
   }
 }
