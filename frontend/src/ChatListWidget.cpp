@@ -19,6 +19,15 @@ constexpr int kOnlineRole = Qt::UserRole + 2;
 constexpr int kLastMessageRole = Qt::UserRole + 3;
 constexpr int kLastMessageTimeRole = Qt::UserRole + 4;
 
+QString ConversationDisplayName(const QJsonObject &item) {
+  const QString nickname = item.value("targetNickname").toString(
+      item.value("nickname").toString());
+  if (!nickname.isEmpty()) {
+    return nickname;
+  }
+  return item.value("targetUsername").toString();
+}
+
 class SessionItemWidget : public QWidget {
  public:
   SessionItemWidget(const QString &name, const QString &time,
@@ -148,7 +157,7 @@ void ChatListWidget::loadConversations() {
               read_conversation_ids_.contains(target_user_id)
                   ? 0
                   : item.value("unreadCount").toInt();
-          AddConversation(target_user_id, item.value("targetUsername").toString(),
+          AddConversation(target_user_id, ConversationDisplayName(item),
                           item.value("lastMessage").toString(),
                           item.value("lastMessageTime").toString(),
                           unread_count, item.value("isOnline").toBool());

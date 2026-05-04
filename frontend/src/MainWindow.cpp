@@ -144,8 +144,8 @@ void MainWindow::OpenConversation(int target_user_id,
           const QJsonObject &response) {
         const QJsonObject data = response.value("data").toObject();
         const int user_id = data.value("targetUserId").toInt(target_user_id);
-        const QString name =
-            data.value("targetNickname").toString(display_name);
+        const QString name = data.value("targetNickname").toString(
+            data.value("nickname").toString(display_name));
         const bool online = data.value("isOnline").toBool(is_online);
         chat_list_widget_->loadConversations();
         chat_window_->loadMessages(user_id, name, online);
