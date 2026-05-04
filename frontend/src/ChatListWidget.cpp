@@ -5,6 +5,7 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonObject>
+#include <QtCore/QJsonValue>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
@@ -18,6 +19,24 @@ constexpr int kTargetUserIdRole = Qt::UserRole + 1;
 constexpr int kOnlineRole = Qt::UserRole + 2;
 constexpr int kLastMessageRole = Qt::UserRole + 3;
 constexpr int kLastMessageTimeRole = Qt::UserRole + 4;
+
+bool IsOnlineValue(const QJsonValue &value) {
+  if (value.isBool()) {
+    return value.toBool();
+  }
+  if (value.isDouble()) {
+    return value.toInt() == 1;
+  }
+  const QString text = value.toString().toLower();
+  return text == "1" || text == "true" || text == "online";
+}
+
+bool IsOnline(const QJsonObject &item) {
+  if (item.contains("isOnline")) {
+    return IsOnlineValue(item.value("isOnline"));
+  }
+  return IsOnlineValue(item.value("status"));
+}
 
 class SessionItemWidget : public QWidget {
  public:
@@ -170,7 +189,7 @@ void ChatListWidget::FetchConversations() {
           AddConversation(target_user_id, DisplayNameForConversation(item),
                           item.value("lastMessage").toString(),
                           item.value("lastMessageTime").toString(),
-                          unread_count, item.value("isOnline").toBool());
+                          unread_count, IsOnline(item));
         }
       });
 }

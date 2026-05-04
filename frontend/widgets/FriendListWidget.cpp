@@ -4,6 +4,7 @@
 
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonObject>
+#include <QtCore/QJsonValue>
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
@@ -18,6 +19,24 @@ constexpr int kFriendOnlineRole = Qt::UserRole + 2;
 
 QString DisplayName(const QString &username, const QString &nickname) {
   return nickname.isEmpty() ? username : nickname;
+}
+
+bool IsOnlineValue(const QJsonValue &value) {
+  if (value.isBool()) {
+    return value.toBool();
+  }
+  if (value.isDouble()) {
+    return value.toInt() == 1;
+  }
+  const QString text = value.toString().toLower();
+  return text == "1" || text == "true" || text == "online";
+}
+
+bool IsOnline(const QJsonObject &item) {
+  if (item.contains("isOnline")) {
+    return IsOnlineValue(item.value("isOnline"));
+  }
+  return IsOnlineValue(item.value("status"));
 }
 
 class FriendItemWidget : public QWidget {
@@ -106,7 +125,7 @@ void FriendListWidget::loadFriends() {
                                            item.value("username").toString(),
                                            item.value("nickname").toString(),
                                            item.value("signature").toString(),
-                                           item.value("isOnline").toBool());
+                                           IsOnline(item));
                                }
                              });
 }

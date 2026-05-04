@@ -12,6 +12,7 @@
 #include <QtCore/QIODevice>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonObject>
+#include <QtCore/QJsonValue>
 #include <QtCore/QTimer>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QSplitter>
@@ -20,6 +21,31 @@
 #include <QtWidgets/QWidget>
 
 #include "ApiClient.h"
+
+namespace {
+
+bool IsOnlineValue(const QJsonValue &value) {
+  if (value.isBool()) {
+    return value.toBool();
+  }
+  if (value.isDouble()) {
+    return value.toInt() == 1;
+  }
+  const QString text = value.toString().toLower();
+  return text == "1" || text == "true" || text == "online";
+}
+
+bool IsOnline(const QJsonObject &item, bool fallback) {
+  if (item.contains("isOnline")) {
+    return IsOnlineValue(item.value("isOnline"));
+  }
+  if (item.contains("status")) {
+    return IsOnlineValue(item.value("status"));
+  }
+  return fallback;
+}
+
+}  // namespace
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   setWindowFlags(Qt::FramelessWindowHint);
@@ -146,7 +172,7 @@ void MainWindow::OpenConversation(int target_user_id,
         const int user_id = data.value("targetUserId").toInt(target_user_id);
         const QString name = data.value("targetNickname").toString(
             data.value("nickname").toString(display_name));
-        const bool online = data.value("isOnline").toBool(is_online);
+        const bool online = IsOnline(data, is_online);
         chat_list_widget_->loadConversations();
         chat_window_->loadMessages(user_id, name, online);
       },
