@@ -13,6 +13,7 @@
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonObject>
 #include <QtCore/QTimer>
+#include <QtGui/QCloseEvent>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QSplitter>
 #include <QtWidgets/QStackedWidget>
@@ -124,6 +125,11 @@ void MainWindow::LoadProfile() {
                              });
 }
 
+void MainWindow::closeEvent(QCloseEvent *event) {
+  LogoutOnClose();
+  QMainWindow::closeEvent(event);
+}
+
 void MainWindow::initializeSession() {
   session_initialized_ = true;
   nav_bar_->setCurrentIndex(0);
@@ -133,6 +139,19 @@ void MainWindow::initializeSession() {
   friend_list_widget_->loadRequests();
   request_timer_->start(30000);
   presence_timer_->start(5000);
+}
+
+void MainWindow::LogoutOnClose() {
+  if (!session_initialized_) {
+    return;
+  }
+
+  request_timer_->stop();
+  presence_timer_->stop();
+  ApiClient::instance()->postBlocking("/api/v1/auth/logout", QJsonObject(),
+                                      1500);
+  ApiClient::instance()->setToken(QString());
+  session_initialized_ = false;
 }
 
 void MainWindow::OpenAddFriendDialog() {

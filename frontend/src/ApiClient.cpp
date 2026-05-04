@@ -1,6 +1,8 @@
 #include "ApiClient.h"
 
+#include <QtCore/QEventLoop>
 #include <QtCore/QJsonDocument>
+#include <QtCore/QTimer>
 #include <QtCore/qscopeguard.h>
 #include <QtNetwork/QNetworkReply>
 #include <QtNetwork/QNetworkRequest>
@@ -46,6 +48,40 @@ void ApiClient::post(const QString &path, const QJsonObject &body,
   connect(reply, &QNetworkReply::finished, this, [=]() {
     HandleReply(reply, receiver, on_success, on_failure);
   });
+}
+
+bool ApiClient::postBlocking(const QString &path, const QJsonObject &body,
+                             int timeout_ms) {
+  QNetworkRequest request = CreateRequest(path);
+  request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+  QNetworkReply *reply =
+      network_manager_.post(request, QJsonDocument(body).toJson());
+
+  QEventLoop loop;
+  QTimer timer;
+  bool timed_out = false;
+  timer.setSingleShot(true);
+
+  connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+  connect(&timer, &QTimer::timeout, &loop, [&]() {
+    timed_out = true;
+    reply->abort();
+    loop.quit();
+  });
+
+  timer.start(timeout_ms);
+  loop.exec();
+  if (timer.isActive()) {
+    timer.stop();
+  }
+
+  const QByteArray response_body = reply->readAll();
+  const QJsonObject object = QJsonDocument::fromJson(response_body).object();
+  const int code = object.value("code").toInt(-1);
+  const bool ok = !timed_out && reply->error() == QNetworkReply::NoError &&
+                  code == 0;
+  reply->deleteLater();
+  return ok;
 }
 
 void ApiClient::put(const QString &path, const QJsonObject &body,

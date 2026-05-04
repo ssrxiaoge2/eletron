@@ -24,6 +24,8 @@ class ApiClient : public QObject {
             const QObject *receiver,
             std::function<void(const QJsonObject &)> on_success,
             std::function<void()> on_failure = {});
+  bool postBlocking(const QString &path, const QJsonObject &body,
+                    int timeout_ms);
   void put(const QString &path, const QJsonObject &body, const QObject *receiver,
            std::function<void(const QJsonObject &)> on_success,
            std::function<void()> on_failure = {});

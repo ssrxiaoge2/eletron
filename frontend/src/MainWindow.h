@@ -4,6 +4,7 @@
 
 class ChatListWidget;
 class ChatWindow;
+class QCloseEvent;
 class FriendListWidget;
 class NavBar;
 class QStackedWidget;
@@ -17,9 +18,13 @@ class MainWindow : public QMainWindow {
   explicit MainWindow(QWidget *parent = nullptr);
   void initializeSession();
 
+ protected:
+  void closeEvent(QCloseEvent *event) override;
+
  private:
   void LoadStyleSheet();
   void LoadProfile();
+  void LogoutOnClose();
   void OpenAddFriendDialog();
   void OpenConversation(int target_user_id, const QString &display_name,
                         bool is_online);
