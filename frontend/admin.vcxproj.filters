@@ -65,7 +65,13 @@
     <QtMoc Include="widgets\FriendListWidget.h">
       <Filter>Header Files</Filter>
     </QtMoc>
+    <QtMoc Include="widgets\ImageViewerDialog.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
     <QtMoc Include="widgets\ProfileDialog.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="widgets\UploadProgressWidget.h">
       <Filter>Header Files</Filter>
     </QtMoc>
     <ClCompile Include="src\MainWindow.cpp">
@@ -107,7 +113,13 @@
     <ClCompile Include="widgets\FriendListWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="widgets\ImageViewerDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="widgets\ProfileDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="widgets\UploadProgressWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ResourceCompile Include="$pro_name$.rc">

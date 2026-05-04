@@ -110,7 +110,9 @@
     <QtMoc Include="widgets\AddFriendDialog.h"/>
     <QtMoc Include="widgets\EditProfileDialog.h"/>
     <QtMoc Include="widgets\FriendListWidget.h"/>
+    <QtMoc Include="widgets\ImageViewerDialog.h"/>
     <QtMoc Include="widgets\ProfileDialog.h"/>
+    <QtMoc Include="widgets\UploadProgressWidget.h"/>
     <ClCompile Include="src\MainWindow.cpp"/>
     <ClCompile Include="src\LoginWindow.cpp"/>
     <ClCompile Include="src\AuthClient.cpp"/>
@@ -124,7 +126,9 @@
     <ClCompile Include="widgets\AddFriendDialog.cpp"/>
     <ClCompile Include="widgets\EditProfileDialog.cpp"/>
     <ClCompile Include="widgets\FriendListWidget.cpp"/>
+    <ClCompile Include="widgets\ImageViewerDialog.cpp"/>
     <ClCompile Include="widgets\ProfileDialog.cpp"/>
+    <ClCompile Include="widgets\UploadProgressWidget.cpp"/>
     <None Include="styles\main.qss"/>
 
   </ItemGroup>
