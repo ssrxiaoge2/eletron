@@ -2,6 +2,7 @@
 
 ## 2026-05-01
 
+- 修复缓存 token 直接进入主界面时在线状态不刷新的问题；现在有效 token 访问资料、好友、会话、消息等接口时也会刷新 `users.status = 1`。
 - 修复登录成功后未更新 `users.status` 的问题；现在登录会在同一事务内创建 session 并将当前用户置为在线状态 `1`。
 - 新增 `POST /api/v1/messages/read` 和 `POST /api/v1/conversations/read`，支持持久化清除会话未读红点。
 - 新增 `conversations` 表，使用 `(user_id, target_user_id)` 唯一约束保证 `POST /api/v1/conversations` 不产生重复会话。

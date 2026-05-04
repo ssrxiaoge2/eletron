@@ -40,6 +40,15 @@ bool MessageModel::findUserIdByToken(const QString& token, qint64* userId)
     }
 
     *userId = query.value(QStringLiteral("user_id")).toLongLong();
+
+    QSqlQuery statusQuery(db);
+    statusQuery.prepare(QStringLiteral(
+        "UPDATE users SET status = 1 WHERE id = :user_id AND is_deleted = 0"));
+    statusQuery.bindValue(QStringLiteral(":user_id"), *userId);
+    if (!statusQuery.exec()) {
+        return false;
+    }
+
     return true;
 }
 
