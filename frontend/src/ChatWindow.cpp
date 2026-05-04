@@ -121,14 +121,17 @@ QWidget *ChatWindow::CreateMessageArea() {
   message_layout_ = new QVBoxLayout(container);
 
   message_scroll_area_->setObjectName("messageScrollArea");
+  message_scroll_area_->setAttribute(Qt::WA_StyledBackground, true);
   message_scroll_area_->setWidgetResizable(true);
   message_scroll_area_->setFrameShape(QFrame::NoFrame);
   message_scroll_area_->viewport()->setObjectName("messageViewport");
+  message_scroll_area_->viewport()->setAttribute(Qt::WA_StyledBackground, true);
   message_scroll_area_->setWidget(container);
 
   container->setObjectName("messageContainer");
-  message_layout_->setContentsMargins(0, 12, 0, 12);
-  message_layout_->setSpacing(4);
+  container->setAttribute(Qt::WA_StyledBackground, true);
+  message_layout_->setContentsMargins(0, 12, 0, 16);
+  message_layout_->setSpacing(2);
   message_layout_->addStretch();
 
   return message_scroll_area_;
@@ -181,6 +184,7 @@ QWidget *ChatWindow::CreateInputArea() {
 void ChatWindow::AddTimestamp(const QString &time_text) {
   auto *timestamp = new QLabel(time_text, this);
   timestamp->setObjectName("messageTimestamp");
+  timestamp->setAttribute(Qt::WA_StyledBackground, true);
   timestamp->setAlignment(Qt::AlignCenter);
   message_layout_->insertWidget(message_layout_->count() - 1, timestamp);
 }

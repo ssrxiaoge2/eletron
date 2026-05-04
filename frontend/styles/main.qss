@@ -349,29 +349,27 @@ QScrollArea#messageScrollArea,
 QWidget#messageViewport,
 QWidget#messageContainer {
   background: #ffffff;
+  border: 0;
 }
 
 QWidget#sentMessageRow,
 QWidget#receivedMessageRow {
   background: #ffffff;
+  border: 0;
 }
 
 QLabel#messageTimestamp {
-  color: #999999;
+  background: #ffffff;
+  color: #111111;
   font-size: 12px;
-  padding: 8px;
+  min-height: 24px;
+  padding: 4px 0;
+  border: 0;
 }
 
-QLabel#sentBubble {
-  background: #1d6fa4;
-  color: #000000;
-  border-radius: 12px;
-  padding: 10px 12px;
-  font-size: 14px;
-}
-
+QLabel#sentBubble,
 QLabel#receivedBubble {
-  background: #3a3a3a;
+  background: #1d6fa4;
   color: #000000;
   border-radius: 12px;
   padding: 10px 12px;

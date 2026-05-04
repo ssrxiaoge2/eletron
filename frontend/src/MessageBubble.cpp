@@ -1,7 +1,9 @@
 #include "MessageBubble.h"
 
+#include <QtCore/QtGlobal>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QSizePolicy>
 
 MessageBubble::MessageBubble(const QString &text, bool sent_by_me,
                              QWidget *parent)
@@ -10,28 +12,34 @@ MessageBubble::MessageBubble(const QString &text, bool sent_by_me,
   auto *avatar = new QLabel(sent_by_me ? QStringLiteral("\u6211")
                                       : QStringLiteral("\u53cb"),
                             this);
-  auto *bubble = new QLabel(text, this);
+  bubble_ = new QLabel(text, this);
 
   setObjectName(sent_by_me ? "sentMessageRow" : "receivedMessageRow");
   setAttribute(Qt::WA_StyledBackground, true);
+  setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
   avatar->setObjectName("messageAvatar");
-  bubble->setObjectName(sent_by_me ? "sentBubble" : "receivedBubble");
+  bubble_->setObjectName(sent_by_me ? "sentBubble" : "receivedBubble");
   avatar->setAlignment(Qt::AlignCenter);
   avatar->setFixedSize(36, 36);
-  bubble->setWordWrap(true);
-  bubble->setMaximumWidth(520);
-  bubble->setTextInteractionFlags(Qt::TextSelectableByMouse);
+  bubble_->setWordWrap(true);
+  bubble_->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Minimum);
+  bubble_->setTextInteractionFlags(Qt::TextSelectableByMouse);
 
   root_layout->setContentsMargins(18, 6, 18, 6);
   root_layout->setSpacing(8);
 
   if (sent_by_me) {
     root_layout->addStretch();
-    root_layout->addWidget(bubble);
+    root_layout->addWidget(bubble_);
     root_layout->addWidget(avatar);
   } else {
     root_layout->addWidget(avatar);
-    root_layout->addWidget(bubble);
+    root_layout->addWidget(bubble_);
     root_layout->addStretch();
   }
+}
+
+void MessageBubble::resizeEvent(QResizeEvent *event) {
+  QWidget::resizeEvent(event);
+  bubble_->setMaximumWidth(qMax(160, width() * 3 / 5));
 }
