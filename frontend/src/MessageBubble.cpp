@@ -5,6 +5,7 @@
 #include <QtCore/QFileInfo>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
+#include <QtCore/QDebug>
 #include <QtCore/QtGlobal>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QPainter>
@@ -23,6 +24,34 @@ constexpr int kPreviewSize = 200;
 QJsonObject ParseContentJson(const QString &content) {
   const QJsonDocument document = QJsonDocument::fromJson(content.toUtf8());
   return document.isObject() ? document.object() : QJsonObject();
+}
+
+int JsonInt(const QJsonObject &object, std::initializer_list<const char *> keys) {
+  for (const char *key : keys) {
+    const QJsonValue value = object.value(QString::fromLatin1(key));
+    if (value.isDouble()) {
+      return value.toInt();
+    }
+    if (value.isString()) {
+      bool ok = false;
+      const int number = value.toString().toInt(&ok);
+      if (ok) {
+        return number;
+      }
+    }
+  }
+  return 0;
+}
+
+qint64 JsonSize(const QJsonObject &object) {
+  const QJsonValue value = object.value("fileSize");
+  if (value.isDouble()) {
+    return static_cast<qint64>(value.toDouble());
+  }
+  if (value.isString()) {
+    return value.toString().toLongLong();
+  }
+  return 0;
 }
 
 QString ReadableFileSize(qint64 size) {
@@ -87,6 +116,14 @@ QPixmap RoundedPixmap(const QPixmap &source, const QSize &max_size,
   painter.setClipPath(path);
   painter.drawPixmap(0, 0, scaled);
   return rounded;
+}
+
+QString DisplayFileName(QString file_name) {
+  const int underscore_index = file_name.indexOf('_');
+  if (underscore_index > 0 && underscore_index + 1 < file_name.size()) {
+    return file_name.mid(underscore_index + 1);
+  }
+  return file_name;
 }
 
 }  // namespace
@@ -172,20 +209,19 @@ QWidget *MessageBubble::CreateTextContent(const QString &content) {
 
 QWidget *MessageBubble::CreateImageContent(const QString &content) {
   const QJsonObject object = ParseContentJson(content);
-  file_id_ = object.value("fileId").toInt();
-  file_name_ = object.value("fileName").toString(QStringLiteral("image"));
-  file_size_ = static_cast<qint64>(object.value("fileSize").toDouble());
+  file_id_ = JsonInt(object, {"fileId", "fileID", "file_id", "id"});
+  file_name_ = DisplayFileName(
+      object.value("fileName").toString(QStringLiteral("image")));
+  file_size_ = JsonSize(object);
 
   thumbnail_label_ = new QLabel(this);
   bubble_ = thumbnail_label_;
   thumbnail_label_->setObjectName("imageBubble");
-  thumbnail_label_->setAlignment(Qt::AlignCenter);
-  thumbnail_label_->setFixedSize(kPreviewSize, kPreviewSize);
   thumbnail_label_->setScaledContents(false);
-  thumbnail_label_->setText(QStringLiteral("\u56fe\u7247\u52a0\u8f7d\u4e2d"));
   thumbnail_label_->setToolTip(QStringLiteral("\u70b9\u51fb\u67e5\u770b\u539f\u56fe"));
   thumbnail_label_->installEventFilter(this);
   clickable_widget_ = thumbnail_label_;
+  ShowImagePlaceholder(QStringLiteral("\u52a0\u8f7d\u4e2d..."));
 
   LoadThumbnail();
   return thumbnail_label_;
@@ -193,9 +229,10 @@ QWidget *MessageBubble::CreateImageContent(const QString &content) {
 
 QWidget *MessageBubble::CreateFileContent(const QString &content) {
   const QJsonObject object = ParseContentJson(content);
-  file_id_ = object.value("fileId").toInt();
-  file_name_ = object.value("fileName").toString(QStringLiteral("file"));
-  file_size_ = static_cast<qint64>(object.value("fileSize").toDouble());
+  file_id_ = JsonInt(object, {"fileId", "fileID", "file_id", "id"});
+  file_name_ = DisplayFileName(
+      object.value("fileName").toString(QStringLiteral("file")));
+  file_size_ = JsonSize(object);
 
   auto *frame = new QFrame(this);
   auto *layout = new QHBoxLayout(frame);
@@ -243,23 +280,54 @@ QWidget *MessageBubble::CreateFileContent(const QString &content) {
 
 void MessageBubble::LoadThumbnail() {
   if (file_id_ <= 0 || thumbnail_label_ == nullptr) {
+    qDebug() << "缩略图 fileId 无效，跳过渲染:" << file_id_ << file_name_;
+    ShowImagePlaceholder(QStringLiteral("\u56fe\u7247\u65e0\u6548"));
     return;
   }
 
+  const QString thumbnail_path =
+      QStringLiteral("/api/v1/files/thumbnail/%1").arg(file_id_);
+  qDebug() << "请求缩略图URL:" << thumbnail_path;
   ApiClient::instance()->downloadBytes(
-      QStringLiteral("/api/v1/files/thumbnail/%1").arg(file_id_), this,
+      thumbnail_path, this,
       [this](const QByteArray &data) {
-        QPixmap pixmap;
-        if (!pixmap.loadFromData(data)) {
-          thumbnail_label_->setText(QStringLiteral("\u56fe\u7247\u52a0\u8f7d\u5931\u8d25"));
+        qDebug() << "缩略图数据大小:" << data.size();
+        if (data.isEmpty()) {
+          qDebug() << "缩略图数据为空，跳过渲染";
+          ShowImagePlaceholder(QStringLiteral("\u56fe\u7247\u52a0\u8f7d\u5931\u8d25"));
           return;
         }
-        thumbnail_label_->setPixmap(
-            RoundedPixmap(pixmap, QSize(kPreviewSize, kPreviewSize), 8));
+        QPixmap pixmap;
+        const bool ok = pixmap.loadFromData(data);
+        qDebug() << "QPixmap加载结果:" << ok;
+        if (!ok || pixmap.isNull()) {
+          ShowImagePlaceholder(QStringLiteral("\u56fe\u7247\u52a0\u8f7d\u5931\u8d25"));
+          return;
+        }
+        const QPixmap rounded =
+            RoundedPixmap(pixmap, QSize(kPreviewSize, kPreviewSize), 8);
+        thumbnail_label_->setText(QString());
+        thumbnail_label_->setStyleSheet(QStringLiteral("border-radius: 8px;"));
+        thumbnail_label_->setPixmap(rounded);
+        thumbnail_label_->setFixedSize(rounded.size());
+        adjustSize();
       },
       [this]() {
         if (thumbnail_label_ != nullptr) {
-          thumbnail_label_->setText(QStringLiteral("\u56fe\u7247\u52a0\u8f7d\u5931\u8d25"));
+          qDebug() << "缩略图请求失败:" << file_id_ << file_name_;
+          ShowImagePlaceholder(QStringLiteral("\u56fe\u7247\u52a0\u8f7d\u5931\u8d25"));
         }
       });
+}
+
+void MessageBubble::ShowImagePlaceholder(const QString &text) {
+  if (thumbnail_label_ == nullptr) {
+    return;
+  }
+  thumbnail_label_->setPixmap(QPixmap());
+  thumbnail_label_->setFixedSize(120, 120);
+  thumbnail_label_->setAlignment(Qt::AlignCenter);
+  thumbnail_label_->setText(text);
+  thumbnail_label_->setStyleSheet(QStringLiteral(
+      "background: #d0d0d0; color: #666666; border-radius: 8px;"));
 }

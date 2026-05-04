@@ -16,6 +16,8 @@ qt_add_executable(qq_desktop_frontend
   src/ApiClient.h
   src/AuthClient.cpp
   src/AuthClient.h
+  src/ChatInputEdit.cpp
+  src/ChatInputEdit.h
   src/ChatListWidget.cpp
   src/ChatListWidget.h
   src/ChatWindow.cpp

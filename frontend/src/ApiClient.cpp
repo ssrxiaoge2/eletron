@@ -7,6 +7,7 @@
 #include <QtCore/QFileInfo>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QLockFile>
+#include <QtCore/QDebug>
 #include <QtCore/QTimer>
 #include <QtCore/qscopeguard.h>
 #include <QtNetwork/QHttpMultiPart>
@@ -214,6 +215,12 @@ QNetworkReply *ApiClient::downloadBytes(
     }
 
     const QByteArray response_body = reply->readAll();
+    qDebug() << "二进制请求URL:" << QString::fromLatin1(kBaseUrl) + path;
+    qDebug() << "HTTP状态码:"
+             << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute)
+                    .toInt();
+    qDebug() << "错误信息:" << reply->errorString();
+    qDebug() << "二进制数据大小:" << response_body.size();
     if (reply->error() == QNetworkReply::NoError) {
       on_success(response_body);
       return;

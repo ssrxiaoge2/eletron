@@ -3,7 +3,9 @@
 #include "ApiClient.h"
 
 #include <QtCore/QDateTime>
+#include <QtCore/QFileInfo>
 #include <QtCore/QJsonArray>
+#include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
@@ -19,9 +21,47 @@ constexpr int kOnlineRole = Qt::UserRole + 2;
 constexpr int kLastMessageRole = Qt::UserRole + 3;
 constexpr int kLastMessageTimeRole = Qt::UserRole + 4;
 constexpr int kUnreadCountRole = Qt::UserRole + 5;
+constexpr int kLastMessageTypeRole = Qt::UserRole + 6;
 
 bool IsOnline(const QJsonObject &item) {
   return item.value("isOnline").toBool(false);
+}
+
+QString JsonFileName(const QString &content) {
+  const QJsonDocument document = QJsonDocument::fromJson(content.toUtf8());
+  if (!document.isObject()) {
+    return QString();
+  }
+  QString file_name = document.object().value("fileName").toString();
+  const int underscore_index = file_name.indexOf('_');
+  if (underscore_index > 0 && underscore_index + 1 < file_name.size()) {
+    file_name = file_name.mid(underscore_index + 1);
+  }
+  return file_name;
+}
+
+bool IsImageFileName(const QString &file_name) {
+  const QString suffix = QFileInfo(file_name).suffix().toLower();
+  return suffix == "png" || suffix == "jpg" || suffix == "jpeg" ||
+         suffix == "gif" || suffix == "bmp" || suffix == "webp";
+}
+
+int JsonFileType(const QString &content) {
+  const QJsonDocument document = QJsonDocument::fromJson(content.toUtf8());
+  if (!document.isObject()) {
+    return -1;
+  }
+  const QJsonObject object = document.object();
+  const int file_type = object.value("fileType").toInt(
+      object.value("type").toInt(-1));
+  if (file_type == 1 || file_type == 2) {
+    return file_type;
+  }
+  const QString file_name = object.value("fileName").toString();
+  if (!file_name.isEmpty()) {
+    return IsImageFileName(file_name) ? 1 : 2;
+  }
+  return object.contains("fileId") ? 2 : -1;
 }
 
 QString OnlineDotStyle(bool is_online) {
@@ -217,6 +257,8 @@ void ChatListWidget::FetchConversations() {
                   : item.value("unreadCount").toInt();
           AddConversation(target_user_id, DisplayNameForConversation(item),
                           item.value("lastMessage").toString(),
+                          item.value("lastMessageType").toInt(
+                              item.value("type").toInt(-1)),
                           item.value("lastMessageTime").toString(),
                           unread_count,
                           OnlineStateForConversation(target_user_id, item));
@@ -269,9 +311,11 @@ void ChatListWidget::updateConversationPreview(int target_user_id,
     moved_item->setData(kOnlineRole, is_online);
     moved_item->setData(kLastMessageRole, content);
     moved_item->setData(kLastMessageTimeRole, created_at);
+    moved_item->setData(kLastMessageTypeRole, -1);
     moved_item->setData(kUnreadCountRole, 0);
     auto *widget = new SessionItemWidget(display_name, FormatTime(created_at),
-                                         content, 0, is_online, session_list_);
+                                         FormatPreview(content, -1), 0,
+                                         is_online, session_list_);
     session_list_->insertItem(0, moved_item);
     session_list_->setItemWidget(moved_item, widget);
     session_list_->setCurrentItem(moved_item);
@@ -282,6 +326,7 @@ void ChatListWidget::updateConversationPreview(int target_user_id,
 void ChatListWidget::AddConversation(int target_user_id,
                                      const QString &target_username,
                                      const QString &last_message,
+                                     int last_message_type,
                                      const QString &last_message_time,
                                      int unread_count, bool is_online) {
   for (int i = 0; i < session_list_->count(); ++i) {
@@ -297,11 +342,13 @@ void ChatListWidget::AddConversation(int target_user_id,
       old_widget->deleteLater();
     }
     auto *widget = new SessionItemWidget(
-        target_username, FormatTime(last_message_time), last_message,
-        unread_count, is_online, session_list_);
+        target_username, FormatTime(last_message_time),
+        FormatPreview(last_message, last_message_type), unread_count,
+        is_online, session_list_);
     existing_item->setData(Qt::DisplayRole, target_username);
     existing_item->setData(kOnlineRole, is_online);
     existing_item->setData(kLastMessageRole, last_message);
+    existing_item->setData(kLastMessageTypeRole, last_message_type);
     existing_item->setData(kLastMessageTimeRole, last_message_time);
     existing_item->setData(kUnreadCountRole, unread_count);
     session_list_->setItemWidget(existing_item, widget);
@@ -313,12 +360,14 @@ void ChatListWidget::AddConversation(int target_user_id,
 
   auto *item = new QListWidgetItem();
   auto *widget = new SessionItemWidget(
-      target_username, FormatTime(last_message_time), last_message,
-      unread_count, is_online, session_list_);
+      target_username, FormatTime(last_message_time),
+      FormatPreview(last_message, last_message_type), unread_count, is_online,
+      session_list_);
   item->setData(kTargetUserIdRole, target_user_id);
   item->setData(Qt::DisplayRole, target_username);
   item->setData(kOnlineRole, is_online);
   item->setData(kLastMessageRole, last_message);
+  item->setData(kLastMessageTypeRole, last_message_type);
   item->setData(kLastMessageTimeRole, last_message_time);
   item->setData(kUnreadCountRole, unread_count);
   item->setSizeHint({300, 70});
@@ -348,6 +397,7 @@ void ChatListWidget::ClearUnreadBadge(QListWidgetItem *item) {
   MarkConversationRead(target_user_id);
   const QString target_username = item->data(Qt::DisplayRole).toString();
   const QString last_message = item->data(kLastMessageRole).toString();
+  const int last_message_type = item->data(kLastMessageTypeRole).toInt();
   const QString last_message_time = item->data(kLastMessageTimeRole).toString();
   const bool is_online = item->data(kOnlineRole).toBool();
   QWidget *old_widget = session_list_->itemWidget(item);
@@ -356,11 +406,14 @@ void ChatListWidget::ClearUnreadBadge(QListWidgetItem *item) {
     old_widget->deleteLater();
   }
   auto *widget = new SessionItemWidget(target_username, FormatTime(last_message_time),
-                                       last_message, 0, is_online, session_list_);
+                                       FormatPreview(last_message,
+                                                     last_message_type),
+                                       0, is_online, session_list_);
   item->setData(kTargetUserIdRole, target_user_id);
   item->setData(Qt::DisplayRole, target_username);
   item->setData(kOnlineRole, is_online);
   item->setData(kLastMessageRole, last_message);
+  item->setData(kLastMessageTypeRole, last_message_type);
   item->setData(kLastMessageTimeRole, last_message_time);
   item->setData(kUnreadCountRole, 0);
   session_list_->setItemWidget(item, widget);
@@ -412,6 +465,31 @@ QString ChatListWidget::FormatTime(const QString &raw_time) const {
   return raw_time.left(5);
 }
 
+QString ChatListWidget::FormatPreview(const QString &content, int type) const {
+  const int json_type = JsonFileType(content);
+  if (json_type == 1 || json_type == 2) {
+    type = json_type;
+  }
+  if (type == 1) {
+    return QStringLiteral("[\u56fe\u7247]");
+  }
+  if (type == 2) {
+    const QString file_name = JsonFileName(content);
+    return file_name.isEmpty() ? QStringLiteral("[\u6587\u4ef6]")
+                               : QStringLiteral("[\u6587\u4ef6] %1").arg(file_name);
+  }
+
+  if (content.trimmed().startsWith('{')) {
+    const QString file_name = JsonFileName(content);
+    if (!file_name.isEmpty()) {
+      return IsImageFileName(file_name)
+                 ? QStringLiteral("[\u56fe\u7247]")
+                 : QStringLiteral("[\u6587\u4ef6] %1").arg(file_name);
+    }
+  }
+  return content;
+}
+
 bool ChatListWidget::OnlineStateForConversation(
     int target_user_id, const QJsonObject &item) const {
   const bool conversation_online = IsOnline(item);
@@ -430,6 +508,7 @@ void ChatListWidget::ApplyOnlineStatus(int target_user_id, bool is_online) {
 
     AddConversation(target_user_id, item->data(Qt::DisplayRole).toString(),
                     item->data(kLastMessageRole).toString(),
+                    item->data(kLastMessageTypeRole).toInt(),
                     item->data(kLastMessageTimeRole).toString(),
                     item->data(kUnreadCountRole).toInt(), is_online);
     return;

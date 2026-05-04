@@ -35,6 +35,7 @@ class MessageBubble : public QWidget {
   QWidget *CreateImageContent(const QString &content);
   QWidget *CreateFileContent(const QString &content);
   void LoadThumbnail();
+  void ShowImagePlaceholder(const QString &text);
 
   QWidget *bubble_ = nullptr;
   QLabel *thumbnail_label_ = nullptr;

@@ -32,6 +32,7 @@ signals:
   void FetchConversations();
   void AddConversation(int target_user_id, const QString &target_username,
                        const QString &last_message,
+                       int last_message_type,
                        const QString &last_message_time, int unread_count,
                        bool is_online);
   QString DisplayNameForConversation(const QJsonObject &item) const;
@@ -41,6 +42,7 @@ signals:
                                   const QJsonObject &item) const;
   void ApplyOnlineStatus(int target_user_id, bool is_online);
   QString FormatTime(const QString &raw_time) const;
+  QString FormatPreview(const QString &content, int type) const;
 
   QListWidget *session_list_;
   QHash<int, QString> friend_nickname_cache_;

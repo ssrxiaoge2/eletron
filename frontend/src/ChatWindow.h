@@ -7,13 +7,14 @@
 
 #include "MessageBubble.h"
 
+class ChatInputEdit;
 class QJsonObject;
 class QScrollArea;
 class QLabel;
 class QNetworkReply;
 class QPushButton;
+class QPixmap;
 class QResizeEvent;
-class QTextEdit;
 class QToolButton;
 class QTimer;
 class QVBoxLayout;
@@ -52,6 +53,8 @@ signals:
   void HandleSend();
   void HandleSelectImage();
   void HandleSelectFile();
+  void SendImageFile(const QString &file_path);
+  void SendPastedImage(const QPixmap &pixmap);
   void UploadAttachment(const QString &file_path, int type, qint64 max_size,
                         const QString &too_large_message);
   void OpenImage(int file_id, const QString &file_name, qint64 file_size);
@@ -66,7 +69,7 @@ signals:
   QString current_target_username_;
   QScrollArea *message_scroll_area_;
   QVBoxLayout *message_layout_;
-  QTextEdit *message_input_;
+  ChatInputEdit *message_input_;
   QPushButton *send_button_;
   QToolButton *image_button_;
   QToolButton *file_button_;

@@ -1,6 +1,7 @@
 #include "ChatWindow.h"
 
 #include "ApiClient.h"
+#include "ChatInputEdit.h"
 #include "MessageBubble.h"
 #include "../widgets/ImageViewerDialog.h"
 #include "../widgets/UploadProgressWidget.h"
@@ -8,9 +9,13 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
+#include <QtCore/QDir>
+#include <QtCore/QStandardPaths>
+#include <QtCore/QUuid>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
+#include <QtCore/QDebug>
 #include <QtCore/QTimer>
 #include <QtCore/QtGlobal>
 #include <QtGui/QResizeEvent>
@@ -27,7 +32,6 @@
 #include <QtWidgets/QScrollBar>
 #include <QtWidgets/QSizePolicy>
 #include <QtWidgets/QStyle>
-#include <QtWidgets/QTextEdit>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
 
@@ -68,6 +72,42 @@ QString ReadableFileSize(qint64 size) {
     return QStringLiteral("%1 KB").arg(size / 1024.0, 0, 'f', 1);
   }
   return QStringLiteral("%1 MB").arg(size / 1024.0 / 1024.0, 0, 'f', 1);
+}
+
+bool IsImageFileName(const QString &file_name) {
+  const QString suffix = QFileInfo(file_name).suffix().toLower();
+  return suffix == "png" || suffix == "jpg" || suffix == "jpeg" ||
+         suffix == "gif" || suffix == "bmp" || suffix == "webp";
+}
+
+QJsonObject ParseContentJson(const QString &content) {
+  const QJsonDocument document = QJsonDocument::fromJson(content.toUtf8());
+  return document.isObject() ? document.object() : QJsonObject();
+}
+
+int ResolveMessageType(const QJsonObject &message) {
+  const QJsonObject content = ParseContentJson(message.value("content").toString());
+  if (!content.isEmpty()) {
+    const int file_type = content.value("fileType").toInt(
+        content.value("type").toInt(-1));
+    if (file_type == 1 || file_type == 2) {
+      return file_type;
+    }
+    const QString file_name = content.value("fileName").toString();
+    if (!file_name.isEmpty()) {
+      return IsImageFileName(file_name) ? 1 : 2;
+    }
+    if (content.contains("fileId") || content.contains("file_id") ||
+        content.contains("id")) {
+      return 2;
+    }
+  }
+
+  const int raw_type = message.value("type").toInt(-1);
+  if (raw_type == 1 || raw_type == 2) {
+    return raw_type;
+  }
+  return 0;
 }
 
 }  // namespace
@@ -200,7 +240,7 @@ QWidget *ChatWindow::CreateInputArea() {
 
   send_button_ = new QPushButton(QStringLiteral("\u53d1\u9001"), send_row);
   send_button_->setObjectName("sendButton");
-  message_input_ = new QTextEdit(input_area);
+  message_input_ = new ChatInputEdit(input_area);
   message_input_->setObjectName("messageInput");
 
   tool_layout->setContentsMargins(14, 0, 14, 0);
@@ -232,6 +272,10 @@ QWidget *ChatWindow::CreateInputArea() {
           &ChatWindow::HandleSelectImage);
   connect(file_button_, &QToolButton::clicked, this,
           &ChatWindow::HandleSelectFile);
+  connect(message_input_, &ChatInputEdit::imageDropped, this,
+          &ChatWindow::SendImageFile);
+  connect(message_input_, &ChatInputEdit::imagePasted, this,
+          &ChatWindow::SendPastedImage);
   return input_area;
 }
 
@@ -326,8 +370,9 @@ void ChatWindow::AppendMessage(const QJsonObject &message,
 
   const QString content = message.value("content").toString();
   const bool is_self = message.value("isSelf").toBool();
-  const int raw_type = message.value("type").toInt(0);
-  const int type = raw_type >= 0 && raw_type <= 2 ? raw_type : 0;
+  const int type = ResolveMessageType(message);
+  qDebug() << "消息type:" << type
+           << "content:" << content.left(50);
   rendered_message_keys_.insert(key);
   rendered_message_keys_.insert(fallback_key);
   AddMessage(content, static_cast<MessageBubble::BubbleType>(type), is_self,
@@ -411,8 +456,7 @@ void ChatWindow::HandleSelectImage() {
   if (file_path.isEmpty()) {
     return;
   }
-  UploadAttachment(file_path, 1, 20LL * 1024 * 1024,
-                   QStringLiteral("\u56fe\u7247\u5927\u5c0f\u4e0d\u80fd\u8d85\u8fc7 20MB"));
+  SendImageFile(file_path);
 }
 
 void ChatWindow::HandleSelectFile() {
@@ -427,6 +471,32 @@ void ChatWindow::HandleSelectFile() {
   }
   UploadAttachment(file_path, 2, 100LL * 1024 * 1024,
                    QStringLiteral("\u6587\u4ef6\u5927\u5c0f\u4e0d\u80fd\u8d85\u8fc7 100MB"));
+}
+
+void ChatWindow::SendImageFile(const QString &file_path) {
+  UploadAttachment(file_path, 1, 20LL * 1024 * 1024,
+                   QStringLiteral("\u56fe\u7247\u5927\u5c0f\u4e0d\u80fd\u8d85\u8fc7 20MB"));
+}
+
+void ChatWindow::SendPastedImage(const QPixmap &pixmap) {
+  if (pixmap.isNull()) {
+    return;
+  }
+
+  QString temp_dir =
+      QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+  if (temp_dir.isEmpty()) {
+    temp_dir = QDir::tempPath();
+  }
+  const QString file_path =
+      QDir(temp_dir).filePath(QStringLiteral("feige_paste_%1.png")
+                                  .arg(QUuid::createUuid().toString(QUuid::Id128)));
+  if (!pixmap.save(file_path, "PNG")) {
+    QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+                         QStringLiteral("\u7c98\u8d34\u56fe\u7247\u4fdd\u5b58\u5931\u8d25"));
+    return;
+  }
+  SendImageFile(file_path);
 }
 
 void ChatWindow::UploadAttachment(const QString &file_path, int type,
