@@ -29,4 +29,6 @@ class AuthClient : public QObject {
   void HandleRegisterReply(QNetworkReply *reply);
 
   QNetworkAccessManager network_manager_;
+  QString pending_register_username_;
+  QString pending_register_password_;
 };

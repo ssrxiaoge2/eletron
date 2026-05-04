@@ -84,6 +84,9 @@ void AuthClient::QuickLogin(const QString &token) {
 
 void AuthClient::Register(const QString &nickname, const QString &username,
                           const QString &password) {
+  pending_register_username_ = username;
+  pending_register_password_ = password;
+
   QNetworkRequest request{QUrl(kRegisterUrl)};
   request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
@@ -171,9 +174,16 @@ void AuthClient::HandleRegisterReply(QNetworkReply *reply) {
   }
 
   if (status_code >= 200 && status_code < 300 && code == 0) {
-    ApiClient::instance()->setToken(data.value("token").toString());
-    emit registerSucceeded(data.value("username").toString(), QString(),
-                           data.value("token").toString());
+    const QString token = data.value("token").toString();
+    if (token.isEmpty()) {
+      Login(pending_register_username_, pending_register_password_);
+      return;
+    }
+
+    ApiClient::instance()->setToken(token);
+    const QString username =
+        data.value("username").toString(pending_register_username_);
+    emit registerSucceeded(username, QString(), token);
     return;
   }
 

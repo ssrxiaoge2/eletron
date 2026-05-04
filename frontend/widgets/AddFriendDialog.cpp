@@ -4,6 +4,7 @@
 
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonObject>
+#include <QtCore/QSet>
 #include <QtCore/QUrl>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QFrame>
@@ -73,15 +74,26 @@ void AddFriendDialog::SearchUsers() {
   if (keyword.isEmpty()) {
     return;
   }
+  const int generation = ++search_generation_;
 
   const QString path =
       QStringLiteral("/api/v1/users/search?keyword=%1")
           .arg(QString::fromUtf8(QUrl::toPercentEncoding(keyword)));
-  ApiClient::instance()->get(path, this, [this](const QJsonObject &response) {
+  ApiClient::instance()->get(path, this, [this, generation](const QJsonObject &response) {
+    if (generation != search_generation_) {
+      return;
+    }
+    result_list_->clear();
     const QJsonArray users = response.value("data").toArray();
+    QSet<int> rendered_user_ids;
     for (const QJsonValue &value : users) {
       const QJsonObject user = value.toObject();
-      AddResult(user.value("userId").toInt(),
+      const int user_id = user.value("userId").toInt();
+      if (user_id <= 0 || rendered_user_ids.contains(user_id)) {
+        continue;
+      }
+      rendered_user_ids.insert(user_id);
+      AddResult(user_id,
                 user.value("username").toString(),
                 user.value("nickname").toString(),
                 user.value("signature").toString(),

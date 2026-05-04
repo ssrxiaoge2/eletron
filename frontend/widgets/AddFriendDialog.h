@@ -24,4 +24,5 @@ class AddFriendDialog : public QDialog {
 
   QLineEdit *search_edit_;
   QListWidget *result_list_;
+  int search_generation_ = 0;
 };
