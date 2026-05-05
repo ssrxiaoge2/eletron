@@ -8,6 +8,7 @@
 #include "../widgets/AddFriendDialog.h"
 #include "../widgets/CreateGroupDialog.h"
 #include "../widgets/FriendListWidget.h"
+#include "../widgets/FriendManagerWidget.h"
 #include "../widgets/GroupChatWindow.h"
 
 #include <QtCore/QFile>
@@ -50,6 +51,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   nav_bar_ = new NavBar(splitter);
   chat_list_widget_ = new ChatListWidget(splitter);
   friend_list_widget_ = new FriendListWidget(splitter);
+  friend_manager_widget_ = new FriendManagerWidget(splitter);
   chat_window_ = new ChatWindow(this);
   group_chat_window_ = new GroupChatWindow(this);
   middle_stack_ = new QStackedWidget(splitter);
@@ -59,6 +61,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
   middle_stack_->addWidget(chat_list_widget_);
   middle_stack_->addWidget(friend_list_widget_);
+  middle_stack_->addWidget(friend_manager_widget_);
   chat_stack_->addWidget(chat_window_);
   chat_stack_->addWidget(group_chat_window_);
 
@@ -99,6 +102,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
           &MainWindow::OpenConversation);
   connect(friend_list_widget_, &FriendListWidget::createGroupRequested, this,
           &MainWindow::OpenCreateGroupDialog);
+  connect(friend_manager_widget_, &FriendManagerWidget::friendMessageRequested,
+          this, &MainWindow::OpenConversation);
+  connect(friend_manager_widget_, &FriendManagerWidget::groupOpenRequested,
+          this, &MainWindow::OpenGroupConversation);
+  connect(friend_manager_widget_, &FriendManagerWidget::dataChanged,
+          chat_list_widget_, &ChatListWidget::loadConversations);
   connect(friend_list_widget_, &FriendListWidget::requestCountChanged, nav_bar_,
           &NavBar::setFriendBadge);
   connect(chat_window_, &ChatWindow::messageSent, chat_list_widget_,
@@ -293,6 +302,8 @@ void MainWindow::SwitchMiddlePanel(int index) {
   if (index == 1) {
     friend_list_widget_->loadFriends();
     friend_list_widget_->loadRequests();
+  } else if (index == 2) {
+    friend_manager_widget_->loadData();
   } else {
     chat_list_widget_->loadConversations();
   }

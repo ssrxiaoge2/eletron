@@ -68,7 +68,42 @@ GroupMemberWidget::GroupMemberWidget(QWidget *parent) : QWidget(parent) {
   search_edit_ = new QLineEdit(this);
   member_list_ = new QListWidget(this);
 
-  setObjectName("groupMemberPanel");
+  setObjectName("GroupMemberWidget");
+  setStyleSheet(R"(
+    QWidget#GroupMemberWidget {
+      background-color: #ffffff;
+    }
+    QListWidget {
+      background-color: #ffffff;
+      border: none;
+      outline: none;
+    }
+    QListWidget::item {
+      color: #222222;
+      height: 48px;
+      padding-left: 8px;
+      border-radius: 4px;
+    }
+    QListWidget::item:hover {
+      background-color: #f0f0f0;
+    }
+    QListWidget::item:selected {
+      background-color: #e0eaf5;
+      color: #222222;
+    }
+    QLineEdit {
+      background-color: #f5f5f5;
+      border: 1px solid #dddddd;
+      border-radius: 4px;
+      padding: 4px 8px;
+      color: #222222;
+      font-size: 13px;
+    }
+    QLineEdit:focus {
+      border: 1px solid #4a90d9;
+      background-color: #ffffff;
+    }
+  )");
   title->setObjectName("sidePanelTitle");
   search_edit_->setPlaceholderText(QStringLiteral("\u641c\u7d22"));
   member_list_->setFrameShape(QFrame::NoFrame);

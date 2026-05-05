@@ -7,6 +7,7 @@ class ChatListWidget;
 class ChatWindow;
 class QCloseEvent;
 class FriendListWidget;
+class FriendManagerWidget;
 class GroupChatWindow;
 class NavBar;
 class QStackedWidget;
@@ -48,6 +49,7 @@ class MainWindow : public QMainWindow {
   NavBar *nav_bar_;
   ChatListWidget *chat_list_widget_;
   FriendListWidget *friend_list_widget_;
+  FriendManagerWidget *friend_manager_widget_;
   ChatWindow *chat_window_;
   GroupChatWindow *group_chat_window_;
   QStackedWidget *middle_stack_;

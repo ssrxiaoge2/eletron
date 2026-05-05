@@ -74,3 +74,15 @@
 - 已处理：登录接口已写入 `docs/api.md`，并在 Qt 后端实现 `POST /auth/login`。
 - 已处理：注册接口已写入 `docs/api.md`，并在 Qt 后端实现 `POST /auth/register`。
 - 已处理：快捷登录接口已写入 `docs/api.md`，并在 Qt 后端实现 `POST /auth/quick-login`。前端应缓存 `session.token`，不要缓存明文密码。
+
+## [FE-BE-FRIEND-001] 联系人管理器缺少删除好友接口
+
+- 严重程度：P2 功能缺口
+- 负责模块：backend
+- 现象：前端联系人管理器需求包含“删除好友”，但 `docs/api.md` 当前只提供好友分组、移动好友分组、好友申请处理等接口，没有文档化的删除好友接口。
+- 当前前端处理：右键好友菜单保留“删除好友”入口，但仅提示“后端未提供删除好友接口”，不会自行调用未定义接口。
+- 后端需求：
+  - 新增并文档化删除好友接口，建议 `DELETE /api/v1/friends/{friendUserId}`。
+  - Header: `Authorization: Bearer {token}`。
+  - 行为：删除当前用户与目标用户之间的好友关系，并同步清理或保留会话的规则请在接口文档中明确。
+  - 成功响应建议：`{ "code": 0, "message": "ok" }`。

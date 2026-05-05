@@ -21,4 +21,5 @@ signals:
 
   QToolButton *message_button_;
   QToolButton *friend_button_;
+  QToolButton *contact_button_;
 };

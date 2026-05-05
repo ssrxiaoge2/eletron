@@ -71,6 +71,12 @@
     <QtMoc Include="widgets\FriendListWidget.h">
       <Filter>Header Files</Filter>
     </QtMoc>
+    <QtMoc Include="widgets\FriendManagerWidget.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="widgets\FriendTabWidget.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
     <QtMoc Include="widgets\GroupAnnouncementWidget.h">
       <Filter>Header Files</Filter>
     </QtMoc>
@@ -81,6 +87,9 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="widgets\GroupMessageBubble.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="widgets\GroupTabWidget.h">
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="widgets\ImageViewerDialog.h">
@@ -140,6 +149,12 @@
     <ClCompile Include="widgets\FriendListWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="widgets\FriendManagerWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="widgets\FriendTabWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="widgets\GroupAnnouncementWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -150,6 +165,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="widgets\GroupMessageBubble.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="widgets\GroupTabWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="widgets\ImageViewerDialog.cpp">

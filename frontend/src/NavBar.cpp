@@ -14,12 +14,14 @@ NavBar::NavBar(QWidget *parent) : QWidget(parent) {
   auto *layout = new QVBoxLayout(this);
   message_button_ = CreateNavButton(QStringLiteral("\u6d88"), true, 0);
   friend_button_ = CreateNavButton(QStringLiteral("\u4eba"), false, 1);
+  contact_button_ = CreateNavButton(QStringLiteral("\u8054"), false, 2);
   auto *settings_button =
-      CreateNavButton(QStringLiteral("\u8bbe"), false, 2);
+      CreateNavButton(QStringLiteral("\u8bbe"), false, 3);
   settings_button->setCheckable(false);
 
   message_button_->setIcon(style()->standardIcon(QStyle::SP_MessageBoxInformation));
   friend_button_->setIcon(style()->standardIcon(QStyle::SP_DirIcon));
+  contact_button_->setIcon(style()->standardIcon(QStyle::SP_FileDialogContentsView));
   settings_button->setIcon(style()->standardIcon(QStyle::SP_FileDialogDetailedView));
 
   layout->setContentsMargins(10, 12, 10, 12);
@@ -27,6 +29,7 @@ NavBar::NavBar(QWidget *parent) : QWidget(parent) {
   layout->addStretch();
   layout->addWidget(message_button_);
   layout->addWidget(friend_button_);
+  layout->addWidget(contact_button_);
   layout->addStretch();
   layout->addWidget(settings_button);
 
@@ -46,11 +49,12 @@ NavBar::NavBar(QWidget *parent) : QWidget(parent) {
 void NavBar::setCurrentIndex(int index) {
   message_button_->setChecked(index == 0);
   friend_button_->setChecked(index == 1);
+  contact_button_->setChecked(index == 2);
 }
 
 void NavBar::setFriendBadge(int count) {
-  friend_button_->setText(count > 0 ? QString::number(count)
-                                    : QStringLiteral("\u4eba"));
+  contact_button_->setText(count > 0 ? QString::number(count)
+                                     : QStringLiteral("\u8054"));
 }
 
 QToolButton *NavBar::CreateNavButton(const QString &text, bool checked,
@@ -63,7 +67,7 @@ QToolButton *NavBar::CreateNavButton(const QString &text, bool checked,
   button->setIconSize({20, 20});
   button->setFixedSize(40, 40);
   connect(button, &QToolButton::clicked, this, [this, index]() {
-    if (index <= 1) {
+    if (index <= 2) {
       setCurrentIndex(index);
       emit currentIndexChanged(index);
     }

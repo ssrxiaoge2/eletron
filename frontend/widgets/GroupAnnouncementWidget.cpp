@@ -22,10 +22,24 @@ GroupAnnouncementWidget::GroupAnnouncementWidget(QWidget *parent)
   edit_button_ = new QToolButton(header);
   content_label_ = new QLabel(QStringLiteral("\u6682\u65e0\u7fa4\u516c\u544a"), this);
 
-  setObjectName("groupAnnouncement");
-  title->setObjectName("sidePanelTitle");
+  setObjectName("AnnouncementWidget");
+  setStyleSheet(R"(
+    QWidget#AnnouncementWidget {
+      background-color: #ffffff;
+    }
+    QLabel#announcementTitle {
+      color: #222222;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    QLabel#announcementContent {
+      color: #444444;
+      font-size: 13px;
+    }
+  )");
+  title->setObjectName("announcementTitle");
   edit_button_->setText("+");
-  content_label_->setObjectName("groupAnnouncementText");
+  content_label_->setObjectName("announcementContent");
   content_label_->setWordWrap(true);
 
   header_layout->setContentsMargins(0, 0, 0, 0);

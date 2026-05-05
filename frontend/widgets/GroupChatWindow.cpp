@@ -13,10 +13,12 @@
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
+#include <QtCore/QDebug>
 #include <QtCore/QTimer>
 #include <QtGui/QResizeEvent>
 #include <QtGui/QPixmap>
 #include <QtNetwork/QNetworkReply>
+#include <QtWidgets/QApplication>
 #include <QtWidgets/QFileDialog>
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QHBoxLayout>
@@ -350,11 +352,33 @@ void GroupChatWindow::SendText() {
   ApiClient::instance()->post(
       QStringLiteral("/api/v1/groups/%1/messages").arg(group_id_), body, this,
       [this, text](const QJsonObject &response) {
+        qDebug() << "\u53d1\u9001\u7fa4\u6d88\u606f\u54cd\u5e94\uff1a"
+                 << QJsonDocument(response).toJson(QJsonDocument::Compact);
         send_button_->setEnabled(true);
         message_input_->clear();
-        const QString created_at =
-            response.value("data").toObject().value("createdAt").toString(
-                QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"));
+        const QJsonObject data = response.value("data").toObject();
+        const QString created_at = data.value("createdAt").toString(
+            QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"));
+        qDebug() << "\u5f00\u59cb\u8ffd\u52a0\u7fa4\u6d88\u606f\u6c14\u6ce1\uff0ccontent\uff1a"
+                 << text;
+        QJsonObject message;
+        message.insert("messageId",
+                       data.value("messageId").toInt(
+                           -static_cast<int>(
+                               QDateTime::currentMSecsSinceEpoch() %
+                               1000000000)));
+        message.insert("senderId", current_user_id_);
+        message.insert("senderNickname", QString());
+        message.insert("senderRole", my_role_);
+        message.insert("content", text);
+        message.insert("type", 0);
+        message.insert("createdAt", created_at);
+        message.insert("isSelf", true);
+        AppendMessage(message);
+        message_scroll_area_->widget()->adjustSize();
+        message_scroll_area_->widget()->updateGeometry();
+        ScrollToBottom();
+        QApplication::processEvents();
         emit groupMessageSent(group_id_, text, created_at);
         LoadMessages(false);
       },
