@@ -1,5 +1,9 @@
 #include "TestHelpers.h"
 
+namespace {
+constexpr auto DefaultPassword = "Test123456";
+}
+
 TestUser registerAndLogin(ApiClient& client, const QString& username, const QString& password)
 {
     TestUser user;
@@ -27,6 +31,16 @@ TestUser registerAndLogin(ApiClient& client, const QString& username, const QStr
     return user;
 }
 
+QMap<QString, TestUser> createDefaultUsers(ApiClient& client)
+{
+    return {
+        { QStringLiteral("A"), registerAndLogin(client, QStringLiteral("test_a"), QString::fromLatin1(DefaultPassword)) },
+        { QStringLiteral("B"), registerAndLogin(client, QStringLiteral("test_b"), QString::fromLatin1(DefaultPassword)) },
+        { QStringLiteral("C"), registerAndLogin(client, QStringLiteral("test_c"), QString::fromLatin1(DefaultPassword)) },
+        { QStringLiteral("D"), registerAndLogin(client, QStringLiteral("test_d"), QString::fromLatin1(DefaultPassword)) }
+    };
+}
+
 bool makeFriends(ApiClient& client, const TestUser& from, const TestUser& to)
 {
     const auto applyResponse = client.post(QStringLiteral("/api/v1/friends/apply"), {
@@ -49,6 +63,19 @@ bool makeFriends(ApiClient& client, const TestUser& from, const TestUser& to)
     return handleResponse.code() == 0;
 }
 
+qint64 createGroup(ApiClient& client, const TestUser& owner, const QList<TestUser>& members, const QString& name)
+{
+    QJsonArray ids;
+    for (const auto& member : members) {
+        ids.append(member.userId);
+    }
+    const auto response = client.post(QStringLiteral("/api/v1/groups"), {
+        { QStringLiteral("name"), name },
+        { QStringLiteral("memberIds"), ids }
+    }, owner.token);
+    return response.data().toObject().value(QStringLiteral("groupId")).toVariant().toLongLong();
+}
+
 bool arrayContainsUserId(const QJsonArray& array, qint64 userId)
 {
     for (const auto& item : array) {
@@ -59,6 +86,30 @@ bool arrayContainsUserId(const QJsonArray& array, qint64 userId)
         }
     }
     return false;
+}
+
+QJsonObject findObjectByUserId(const QJsonArray& array, qint64 userId)
+{
+    for (const auto& item : array) {
+        const auto object = item.toObject();
+        if (object.value(QStringLiteral("userId")).toVariant().toLongLong() == userId
+            || object.value(QStringLiteral("targetUserId")).toVariant().toLongLong() == userId
+            || object.value(QStringLiteral("fromUserId")).toVariant().toLongLong() == userId) {
+            return object;
+        }
+    }
+    return {};
+}
+
+QJsonObject findGroupByName(const QJsonArray& array, const QString& name)
+{
+    for (const auto& item : array) {
+        const auto object = item.toObject();
+        if (object.value(QStringLiteral("name")).toString() == name) {
+            return object;
+        }
+    }
+    return {};
 }
 
 qint64 firstRequestIdFrom(const QJsonArray& array, qint64 fromUserId)

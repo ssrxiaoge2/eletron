@@ -13,6 +13,8 @@ int runAuthTest(int argc, char** argv);
 int runUserTest(int argc, char** argv);
 int runFriendTest(int argc, char** argv);
 int runMessageTest(int argc, char** argv);
+int runFileTest(int argc, char** argv);
+int runGroupTest(int argc, char** argv);
 int runFlowTest(int argc, char** argv);
 
 namespace {
@@ -44,6 +46,8 @@ int main(int argc, char** argv)
     status |= runToFile(runUserTest, QStringLiteral("tests/results/UserTest.txt"));
     status |= runToFile(runFriendTest, QStringLiteral("tests/results/FriendTest.txt"));
     status |= runToFile(runMessageTest, QStringLiteral("tests/results/MessageTest.txt"));
+    status |= runToFile(runFileTest, QStringLiteral("tests/results/FileTest.txt"));
+    status |= runToFile(runGroupTest, QStringLiteral("tests/results/GroupTest.txt"));
     status |= runToFile(runFlowTest, QStringLiteral("tests/results/FlowTest.txt"));
     return status;
 }

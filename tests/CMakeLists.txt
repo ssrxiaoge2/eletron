@@ -21,6 +21,8 @@ qt_add_executable(im_api_tests
     unit/UserTest.cpp
     unit/FriendTest.cpp
     unit/MessageTest.cpp
+    unit/FileTest.cpp
+    unit/GroupTest.cpp
     integration/FlowTest.cpp
 )
 
@@ -35,7 +37,8 @@ target_link_libraries(im_api_tests
 target_compile_definitions(im_api_tests
     PRIVATE
         TEST_BACKEND_BASE_URL="http://127.0.0.1:8080"
-        TEST_DB_CONFIG_PATH="${CMAKE_CURRENT_SOURCE_DIR}/config/test_config.ini"
+        TEST_DB_CONFIG_PATH="${CMAKE_CURRENT_SOURCE_DIR}/config/config_test.ini"
+        TEST_SCHEMA_SQL_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../sql/init.sql"
 )
 
 enable_testing()

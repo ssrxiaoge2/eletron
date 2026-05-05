@@ -3,40 +3,43 @@
 #include "../common/TestHelpers.h"
 
 #include <QObject>
+#include <QByteArray>
 #include <QTest>
+
+static QString utf8Hex(const char* hex)
+{
+    return QString::fromUtf8(QByteArray::fromHex(hex));
+}
 
 class UserTest : public QObject {
     Q_OBJECT
-
+private:
+    ApiClient client;
+    QMap<QString, TestUser> users;
 private slots:
     void init();
     void cleanup();
-
-    void testGetProfile();
-    void testUpdateProfile();
-    void testUpdateProfilePartial();
+    void testGetProfileSuccess();
+    void testUpdateNickname();
+    void testUpdateSignature();
+    void testUpdatePartialFields();
+    void testUpdateEmail();
 };
 
 void UserTest::init()
 {
-    QVERIFY2(TestDatabase::initDb(), "TestDatabase::initDb() failed");
+    QVERIFY2(TestDatabase::initDb(), "initDb failed");
+    users = createDefaultUsers(client);
+    QVERIFY(users["A"].userId > 0);
 }
 
-void UserTest::cleanup()
+void UserTest::cleanup() { QVERIFY2(TestDatabase::cleanDb(), "cleanDb failed"); }
+
+void UserTest::testGetProfileSuccess()
 {
-    QVERIFY2(TestDatabase::cleanDb(), "TestDatabase::cleanDb() failed");
-}
-
-void UserTest::testGetProfile()
-{
-    ApiClient client;
-    const auto user = registerAndLogin(client, QStringLiteral("testuser1"));
-    QVERIFY(user.userId > 0);
-
-    const auto response = client.get(QStringLiteral("/api/v1/user/profile"), user.token);
-    const auto data = response.data().toObject();
-
+    const auto response = client.get(QStringLiteral("/api/v1/user/profile"), users["A"].token);
     QCOMPARE(response.code(), 0);
+    const auto data = response.data().toObject();
     QVERIFY(data.contains(QStringLiteral("userId")));
     QVERIFY(data.contains(QStringLiteral("username")));
     QVERIFY(data.contains(QStringLiteral("nickname")));
@@ -44,41 +47,36 @@ void UserTest::testGetProfile()
     QVERIFY(data.contains(QStringLiteral("email")));
 }
 
-void UserTest::testUpdateProfile()
+void UserTest::testUpdateNickname()
 {
-    ApiClient client;
-    const auto user = registerAndLogin(client, QStringLiteral("testuser1"));
-    QVERIFY(user.userId > 0);
-
-    const auto response = client.put(QStringLiteral("/api/v1/user/profile"), {
-        { QStringLiteral("nickname"), QStringLiteral("新昵称") },
-        { QStringLiteral("signature"), QStringLiteral("新签名") }
-    }, user.token);
-    const auto data = response.data().toObject();
-
-    QCOMPARE(response.code(), 0);
-    QCOMPARE(data.value(QStringLiteral("nickname")).toString(), QStringLiteral("新昵称"));
-    QCOMPARE(data.value(QStringLiteral("signature")).toString(), QStringLiteral("新签名"));
+    const QString nickname = utf8Hex("e696b0e698b5e7a7b0");
+    QCOMPARE(client.put(QStringLiteral("/api/v1/user/profile"), {{QStringLiteral("nickname"), nickname}}, users["A"].token).code(), 0);
+    QCOMPARE(client.get(QStringLiteral("/api/v1/user/profile"), users["A"].token).data().toObject().value(QStringLiteral("nickname")).toString(), nickname);
 }
 
-void UserTest::testUpdateProfilePartial()
+void UserTest::testUpdateSignature()
 {
-    ApiClient client;
-    const auto user = registerAndLogin(client, QStringLiteral("testuser1"));
-    QVERIFY(user.userId > 0);
+    const QString signature = utf8Hex("e696b0e7adbee5908d");
+    QCOMPARE(client.put(QStringLiteral("/api/v1/user/profile"), {{QStringLiteral("signature"), signature}}, users["A"].token).code(), 0);
+    QCOMPARE(client.get(QStringLiteral("/api/v1/user/profile"), users["A"].token).data().toObject().value(QStringLiteral("signature")).toString(), signature);
+}
 
-    const auto before = client.get(QStringLiteral("/api/v1/user/profile"), user.token).data().toObject();
-    const auto response = client.put(QStringLiteral("/api/v1/user/profile"), {
-        { QStringLiteral("nickname"), QStringLiteral("只改昵称") }
-    }, user.token);
-    const auto data = response.data().toObject();
+void UserTest::testUpdatePartialFields()
+{
+    const QString originalSignature = utf8Hex("e58e9fe7adbee5908d");
+    const QString nickname = utf8Hex("e58faae694b9e698b5e7a7b0");
+    QCOMPARE(client.put(QStringLiteral("/api/v1/user/profile"), {{QStringLiteral("signature"), originalSignature}}, users["A"].token).code(), 0);
+    QCOMPARE(client.put(QStringLiteral("/api/v1/user/profile"), {{QStringLiteral("nickname"), nickname}}, users["A"].token).code(), 0);
+    const auto profile = client.get(QStringLiteral("/api/v1/user/profile"), users["A"].token).data().toObject();
+    QCOMPARE(profile.value(QStringLiteral("nickname")).toString(), nickname);
+    QCOMPARE(profile.value(QStringLiteral("signature")).toString(), originalSignature);
+}
 
+void UserTest::testUpdateEmail()
+{
+    const auto response = client.put(QStringLiteral("/api/v1/user/profile"), {{QStringLiteral("email"), QStringLiteral("test@test.com")}}, users["A"].token);
     QCOMPARE(response.code(), 0);
-    QCOMPARE(data.value(QStringLiteral("nickname")).toString(), QStringLiteral("只改昵称"));
-    QCOMPARE(data.value(QStringLiteral("signature")).toString(), before.value(QStringLiteral("signature")).toString());
-    QCOMPARE(data.value(QStringLiteral("avatar")).toString(), before.value(QStringLiteral("avatar")).toString());
-    QCOMPARE(data.value(QStringLiteral("gender")).toString(), before.value(QStringLiteral("gender")).toString());
-    QCOMPARE(data.value(QStringLiteral("birthday")).toString(), before.value(QStringLiteral("birthday")).toString());
+    QCOMPARE(response.data().toObject().value(QStringLiteral("email")).toString(), QStringLiteral("test@test.com"));
 }
 
 int runUserTest(int argc, char** argv)

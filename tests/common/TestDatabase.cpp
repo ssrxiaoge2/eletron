@@ -1,6 +1,7 @@
 #include "TestDatabase.h"
 
 #include <QFile>
+#include <QRegularExpression>
 #include <QSettings>
 #include <QSqlDatabase>
 #include <QSqlError>
@@ -66,75 +67,22 @@ bool execAll(QSqlDatabase& db, const QStringList& statements)
 
 QStringList schemaStatements()
 {
-    return {
-        QStringLiteral("SET NAMES utf8mb4"),
-        QStringLiteral("SET FOREIGN_KEY_CHECKS = 0"),
-        QStringLiteral("DROP TABLE IF EXISTS sessions"),
-        QStringLiteral("DROP TABLE IF EXISTS messages"),
-        QStringLiteral("DROP TABLE IF EXISTS friendships"),
-        QStringLiteral("DROP TABLE IF EXISTS users"),
-        QStringLiteral("SET FOREIGN_KEY_CHECKS = 1"),
-        QStringLiteral(
-            "CREATE TABLE users ("
-            "id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,"
-            "username VARCHAR(32) NOT NULL UNIQUE,"
-            "password_hash VARCHAR(256) NOT NULL,"
-            "nickname VARCHAR(32) DEFAULT '',"
-            "status TINYINT DEFAULT 0,"
-            "avatar VARCHAR(512) DEFAULT '',"
-            "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
-            "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,"
-            "is_deleted TINYINT(1) DEFAULT 0,"
-            "gender VARCHAR(16) DEFAULT '',"
-            "birthday DATE NULL,"
-            "signature VARCHAR(128) DEFAULT ''"
-            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"),
-        QStringLiteral(
-            "CREATE TABLE friendships ("
-            "id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,"
-            "user_id BIGINT UNSIGNED NOT NULL,"
-            "friend_id BIGINT UNSIGNED NOT NULL,"
-            "status TINYINT DEFAULT 0,"
-            "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
-            "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,"
-            "is_deleted TINYINT(1) DEFAULT 0,"
-            "UNIQUE KEY uk_friendships_pair (user_id, friend_id),"
-            "KEY idx_friendships_user_id (user_id),"
-            "KEY idx_friendships_friend_id (friend_id),"
-            "CONSTRAINT fk_friendships_user_id FOREIGN KEY (user_id) REFERENCES users(id),"
-            "CONSTRAINT fk_friendships_friend_id FOREIGN KEY (friend_id) REFERENCES users(id)"
-            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"),
-        QStringLiteral(
-            "CREATE TABLE messages ("
-            "id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,"
-            "sender_id BIGINT UNSIGNED NOT NULL,"
-            "receiver_id BIGINT UNSIGNED NOT NULL,"
-            "content TEXT NOT NULL,"
-            "type TINYINT DEFAULT 0,"
-            "is_read TINYINT(1) DEFAULT 0,"
-            "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
-            "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,"
-            "is_deleted TINYINT(1) DEFAULT 0,"
-            "KEY idx_messages_sender_id (sender_id),"
-            "KEY idx_messages_receiver_id (receiver_id),"
-            "KEY idx_messages_created_at (created_at),"
-            "CONSTRAINT fk_messages_sender_id FOREIGN KEY (sender_id) REFERENCES users(id),"
-            "CONSTRAINT fk_messages_receiver_id FOREIGN KEY (receiver_id) REFERENCES users(id)"
-            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"),
-        QStringLiteral(
-            "CREATE TABLE sessions ("
-            "id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,"
-            "user_id BIGINT UNSIGNED NOT NULL,"
-            "token_hash VARCHAR(256) NOT NULL UNIQUE,"
-            "expired_at DATETIME NOT NULL,"
-            "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
-            "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,"
-            "is_deleted TINYINT(1) DEFAULT 0,"
-            "KEY idx_sessions_user_id (user_id),"
-            "KEY idx_sessions_expired_at (expired_at),"
-            "CONSTRAINT fk_sessions_user_id FOREIGN KEY (user_id) REFERENCES users(id)"
-            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci")
-    };
+    QFile file(QStringLiteral(TEST_SCHEMA_SQL_PATH));
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return {};
+    }
+
+    auto sql = QString::fromUtf8(file.readAll());
+    sql.replace(QRegularExpression(QStringLiteral("\\bim_app\\b")), QStringLiteral("im_app_test"));
+
+    QStringList statements;
+    for (const auto& part : sql.split(QLatin1Char(';'))) {
+        const auto statement = part.trimmed();
+        if (!statement.isEmpty()) {
+            statements << statement;
+        }
+    }
+    return statements;
 }
 
 } // namespace
@@ -172,8 +120,14 @@ bool TestDatabase::cleanDb()
     return execAll(db, {
         QStringLiteral("SET FOREIGN_KEY_CHECKS = 0"),
         QStringLiteral("DELETE FROM sessions"),
+        QStringLiteral("DELETE FROM group_messages"),
+        QStringLiteral("DELETE FROM group_members"),
+        QStringLiteral("DELETE FROM `groups`"),
+        QStringLiteral("DELETE FROM files"),
         QStringLiteral("DELETE FROM messages"),
+        QStringLiteral("DELETE FROM conversations"),
         QStringLiteral("DELETE FROM friendships"),
+        QStringLiteral("DELETE FROM friend_groups"),
         QStringLiteral("DELETE FROM users"),
         QStringLiteral("SET FOREIGN_KEY_CHECKS = 1")
     });
