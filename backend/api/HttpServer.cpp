@@ -2,6 +2,7 @@
 
 #include "../routers/AuthRouter.h"
 #include "../routers/FileRouter.h"
+#include "../routers/FriendGroupRouter.h"
 #include "../routers/FriendRouter.h"
 #include "../routers/GroupRouter.h"
 #include "../routers/MessageRouter.h"
@@ -50,6 +51,7 @@ void HttpServer::registerRoutes()
     Backend::Routers::AuthRouter::registerRoutes(server_);
     Backend::Routers::MessageRouter::registerRoutes(server_);
     Backend::Routers::FriendRouter::registerRoutes(server_);
+    Backend::Routers::FriendGroupRouter::registerRoutes(server_);
     Backend::Routers::UserRouter::registerRoutes(server_);
     Backend::Routers::FileRouter::registerRoutes(server_);
     Backend::Routers::GroupRouter::registerRoutes(server_);

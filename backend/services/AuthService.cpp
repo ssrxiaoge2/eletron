@@ -3,6 +3,7 @@
 #include "../core/Config.h"
 #include "../core/Database.h"
 #include "../core/JwtHelper.h"
+#include "../models/FriendGroupModel.h"
 
 #include <QSqlError>
 #include <QSqlQuery>
@@ -28,12 +29,17 @@ AuthResult AuthService::registerUser(const QString& username, const QString& pas
         return error(409, 1004, QStringLiteral("username already exists"));
     }
 
+    if (!db.transaction()) {
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
     QSqlQuery insertQuery(db);
     insertQuery.prepare(QStringLiteral(
         "INSERT INTO users (username, password_hash) VALUES (:username, :password_hash)"));
     insertQuery.bindValue(QStringLiteral(":username"), username);
     insertQuery.bindValue(QStringLiteral(":password_hash"), hashPassword(password));
     if (!insertQuery.exec()) {
+        db.rollback();
         const auto driverText = insertQuery.lastError().databaseText();
         if (driverText.contains(QStringLiteral("Duplicate"), Qt::CaseInsensitive)) {
             return error(409, 1004, QStringLiteral("username already exists"));
@@ -41,10 +47,21 @@ AuthResult AuthService::registerUser(const QString& username, const QString& pas
         return error(503, 2002, QStringLiteral("database_error"));
     }
 
+    const auto userId = insertQuery.lastInsertId().toLongLong();
+    if (!Models::FriendGroupModel::ensureDefaultGroup(userId)) {
+        db.rollback();
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
+    if (!db.commit()) {
+        db.rollback();
+        return error(503, 2002, QStringLiteral("database_error"));
+    }
+
     AuthResult result;
     result.httpStatus = 200;
     result.data = QJsonObject {
-        { QStringLiteral("userId"), insertQuery.lastInsertId().toLongLong() }
+        { QStringLiteral("userId"), userId }
     };
     return result;
 }

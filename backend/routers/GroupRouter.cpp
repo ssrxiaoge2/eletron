@@ -92,6 +92,13 @@ void GroupRouter::registerRoutes(QHttpServer& server)
                      return serviceResponse(service.listMine(authorizationHeader(request)));
                  });
 
+    server.route(QStringLiteral("/api/v1/groups/classified"),
+                 QHttpServerRequest::Method::Get,
+                 [](const QHttpServerRequest& request) {
+                     const Services::GroupService service;
+                     return serviceResponse(service.classified(authorizationHeader(request)));
+                 });
+
     server.route(QStringLiteral("/api/v1/groups/<arg>"),
                  QHttpServerRequest::Method::Delete,
                  [](qint64 groupId, const QHttpServerRequest& request) {

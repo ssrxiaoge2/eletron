@@ -135,7 +135,7 @@ FileResult FileService::upload(const QString& bearerToken,
 
     Models::FileRecord record;
     record.uploaderId = userId;
-    record.receiverId = receiverId;
+    record.receiverId = groupId > 0 ? userId : receiverId;
     record.groupId = groupId;
     record.fileName = originalName;
     record.storedName = storedName;

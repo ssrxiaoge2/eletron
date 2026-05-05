@@ -28,6 +28,8 @@ qt_add_executable(im_backend
     models/MessageModel.h
     models/FriendshipModel.cpp
     models/FriendshipModel.h
+    models/FriendGroupModel.cpp
+    models/FriendGroupModel.h
     models/FileModel.cpp
     models/FileModel.h
     models/GroupModel.cpp
@@ -40,6 +42,8 @@ qt_add_executable(im_backend
     routers/MessageRouter.h
     routers/FriendRouter.cpp
     routers/FriendRouter.h
+    routers/FriendGroupRouter.cpp
+    routers/FriendGroupRouter.h
     routers/UserRouter.cpp
     routers/UserRouter.h
     routers/FileRouter.cpp
@@ -54,6 +58,8 @@ qt_add_executable(im_backend
     services/MessageService.h
     services/FriendService.cpp
     services/FriendService.h
+    services/FriendGroupService.cpp
+    services/FriendGroupService.h
     services/UserService.cpp
     services/UserService.h
     services/FileService.cpp

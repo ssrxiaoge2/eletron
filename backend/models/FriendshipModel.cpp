@@ -1,6 +1,7 @@
 #include "FriendshipModel.h"
 
 #include "../core/Database.h"
+#include "FriendGroupModel.h"
 
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -205,6 +206,10 @@ bool FriendshipModel::handleRequest(qint64 currentUserId, qint64 requestId, int 
         return false;
     }
     const auto fromUserId = selectQuery.value(QStringLiteral("user_id")).toLongLong();
+    qint64 defaultGroupId = 0;
+    if (action == 1 && !FriendGroupModel::ensureDefaultGroup(currentUserId, &defaultGroupId)) {
+        return false;
+    }
 
     if (!db.transaction()) {
         return false;
@@ -225,11 +230,12 @@ bool FriendshipModel::handleRequest(qint64 currentUserId, qint64 requestId, int 
     if (action == 1) {
         QSqlQuery reverseQuery(db);
         reverseQuery.prepare(QStringLiteral(
-            "INSERT INTO friendships (user_id, friend_id, status) "
-            "VALUES (:current_user_id, :from_user_id, 1) "
-            "ON DUPLICATE KEY UPDATE status = 1, is_deleted = 0"));
+            "INSERT INTO friendships (user_id, friend_id, status, group_id) "
+            "VALUES (:current_user_id, :from_user_id, 1, :group_id) "
+            "ON DUPLICATE KEY UPDATE status = 1, group_id = :group_id, is_deleted = 0"));
         reverseQuery.bindValue(QStringLiteral(":current_user_id"), currentUserId);
         reverseQuery.bindValue(QStringLiteral(":from_user_id"), fromUserId);
+        reverseQuery.bindValue(QStringLiteral(":group_id"), defaultGroupId);
         if (!reverseQuery.exec()) {
             db.rollback();
             return false;

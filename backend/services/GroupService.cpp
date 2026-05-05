@@ -354,6 +354,42 @@ GroupResult GroupService::listMine(const QString& bearerToken) const
     return result;
 }
 
+GroupResult GroupService::classified(const QString& bearerToken) const
+{
+    qint64 userId = 0;
+    if (!authenticate(bearerToken, &userId)) {
+        return error(401, 1002, QStringLiteral("invalid or expired token"));
+    }
+
+    QJsonArray groups;
+    if (!Models::GroupModel::listMine(userId, &groups)) {
+        return error(503, 2001, QStringLiteral("database_error"));
+    }
+
+    QJsonArray owned;
+    QJsonArray managed;
+    QJsonArray joined;
+    for (const auto& value : groups) {
+        const auto group = value.toObject();
+        const auto role = group.value(QStringLiteral("myRole")).toInt();
+        if (role == 2) {
+            owned.append(group);
+        } else if (role == 1) {
+            managed.append(group);
+        } else {
+            joined.append(group);
+        }
+    }
+
+    GroupResult result;
+    result.data = QJsonObject {
+        { QStringLiteral("owned"), owned },
+        { QStringLiteral("managed"), managed },
+        { QStringLiteral("joined"), joined }
+    };
+    return result;
+}
+
 bool GroupService::authenticate(const QString& bearerToken, qint64* userId)
 {
     return Models::MessageModel::findUserIdByToken(tokenFromBearer(bearerToken), userId);

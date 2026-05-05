@@ -22,6 +22,11 @@
 | POST | `/api/v1/friends/apply` | 发送好友申请 |
 | GET | `/api/v1/friends/requests` | 获取收到的好友申请 |
 | POST | `/api/v1/friends/handle` | 处理好友申请 |
+| GET | `/api/v1/friend-groups` | 获取好友分组和分组内好友 |
+| POST | `/api/v1/friend-groups` | 新建好友分组 |
+| PUT | `/api/v1/friend-groups/{groupId}` | 重命名好友分组 |
+| DELETE | `/api/v1/friend-groups/{groupId}` | 删除好友分组 |
+| PUT | `/api/v1/friends/{friendUserId}/group` | 移动好友到指定分组 |
 | GET | `/api/v1/user/profile` | 获取当前用户资料 |
 | PUT | `/api/v1/user/profile` | 修改当前用户资料 |
 | POST | `/api/v1/user/avatar` | 上传当前用户头像 |
@@ -32,6 +37,7 @@
 
 | POST | `/api/v1/groups` | 创建群聊 |
 | GET | `/api/v1/groups` | 获取我加入的群列表 |
+| GET | `/api/v1/groups/classified` | 获取按角色归类的群聊列表 |
 | GET | `/api/v1/groups/{groupId}` | 获取群信息 |
 | DELETE | `/api/v1/groups/{groupId}` | 解散群聊 |
 | PUT | `/api/v1/groups/{groupId}/name` | 修改群名称 |
@@ -1005,4 +1011,127 @@ Authorization: Bearer {token}
 { "code": 5002, "message": "group member limit exceeded" }
 { "code": 5003, "message": "permission denied" }
 { "code": 5004, "message": "group owner cannot leave group" }
+```
+
+# Friend Group APIs
+
+好友分组接口均需要：
+
+```http
+Authorization: Bearer {token}
+```
+
+## GET `/api/v1/friend-groups`
+
+获取当前用户的所有好友分组，并返回每个分组下的好友列表。
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": [
+    {
+      "groupId": 1,
+      "name": "我的好友",
+      "sortOrder": 0,
+      "onlineCount": 2,
+      "totalCount": 5,
+      "friends": [
+        {
+          "userId": 1002,
+          "username": "laowang",
+          "nickname": "老王",
+          "avatar": "",
+          "signature": "gogogo",
+          "isOnline": true,
+          "friendGroupId": 1
+        }
+      ]
+    }
+  ]
+}
+```
+
+## POST `/api/v1/friend-groups`
+
+```json
+{
+  "name": "同学"
+}
+```
+
+成功：
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "groupId": 2,
+    "name": "同学",
+    "sortOrder": 1
+  }
+}
+```
+
+分组名重复返回 `code=6001`。
+
+## PUT `/api/v1/friend-groups/{groupId}`
+
+```json
+{
+  "name": "新分组名"
+}
+```
+
+## DELETE `/api/v1/friend-groups/{groupId}`
+
+删除非默认分组。该分组下的好友会自动移动到“我的好友”。默认分组不能删除，返回 `code=6002`。
+
+## PUT `/api/v1/friends/{friendUserId}/group`
+
+```json
+{
+  "groupId": 2
+}
+```
+
+将指定好友移动到当前用户自己的目标分组。分组不存在、无权限或目标用户不是好友时返回 `code=6003`。
+
+## Friend Group Errors
+
+```json
+{ "code": 6001, "message": "friend group name already exists" }
+{ "code": 6002, "message": "default friend group cannot be deleted" }
+{ "code": 6003, "message": "friend group not found or no permission" }
+```
+
+# Group Classified API
+
+## GET `/api/v1/groups/classified`
+
+按当前用户在群里的角色自动归类，无需额外分类表。
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "owned": [
+      {
+        "groupId": 1,
+        "name": "工作室",
+        "avatar": "",
+        "memberCount": 3,
+        "lastMessage": "今天完成任务",
+        "lastMessageType": 0,
+        "lastMessageTime": "10:22",
+        "unreadCount": 0,
+        "myRole": 2
+      }
+    ],
+    "managed": [],
+    "joined": []
+  }
+}
 ```

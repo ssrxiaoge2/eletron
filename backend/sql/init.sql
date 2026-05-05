@@ -13,6 +13,7 @@ DROP TABLE IF EXISTS files;
 DROP TABLE IF EXISTS messages;
 DROP TABLE IF EXISTS conversations;
 DROP TABLE IF EXISTS friendships;
+DROP TABLE IF EXISTS friend_groups;
 DROP TABLE IF EXISTS users;
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -32,19 +33,34 @@ CREATE TABLE users (
   email VARCHAR(64) DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE friend_groups (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL COMMENT 'owner user id',
+  name VARCHAR(32) NOT NULL COMMENT 'group name',
+  sort_order INT DEFAULT 0 COMMENT 'lower values are shown first',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_friend_groups_user_name (user_id, name),
+  INDEX idx_user(user_id),
+  CONSTRAINT fk_friend_groups_user_id FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE friendships (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT UNSIGNED NOT NULL,
   friend_id BIGINT UNSIGNED NOT NULL,
   status TINYINT DEFAULT 0 COMMENT '0 pending 1 accepted 2 rejected',
+  group_id BIGINT UNSIGNED DEFAULT NULL COMMENT 'friend group id, NULL means ungrouped',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   is_deleted TINYINT(1) DEFAULT 0,
   UNIQUE KEY uk_friendships_pair (user_id, friend_id),
   KEY idx_friendships_user_id (user_id),
   KEY idx_friendships_friend_id (friend_id),
+  KEY idx_friendships_group_id (group_id),
   CONSTRAINT fk_friendships_user_id FOREIGN KEY (user_id) REFERENCES users(id),
-  CONSTRAINT fk_friendships_friend_id FOREIGN KEY (friend_id) REFERENCES users(id)
+  CONSTRAINT fk_friendships_friend_id FOREIGN KEY (friend_id) REFERENCES users(id),
+  CONSTRAINT fk_friendships_group_id FOREIGN KEY (group_id) REFERENCES friend_groups(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `groups` (
@@ -167,8 +183,15 @@ VALUES
   ('user1', SHA2('123456', 256), '测试用户1', 1, '', 'unknown', '2000-01-01', '今天也要好好聊天', 'user1@example.com'),
   ('user2', SHA2('123456', 256), '东方-Askeai', 0, '', 'unknown', '2000-01-02', '今天也要好好聊天', 'user2@example.com');
 
+SET @testuser_id = (SELECT id FROM users WHERE username = 'testuser' LIMIT 1);
 SET @user1_id = (SELECT id FROM users WHERE username = 'user1' LIMIT 1);
 SET @user2_id = (SELECT id FROM users WHERE username = 'user2' LIMIT 1);
+
+INSERT INTO friend_groups (user_id, name, sort_order)
+VALUES
+  (@testuser_id, '我的好友', 0),
+  (@user1_id, '我的好友', 0),
+  (@user2_id, '我的好友', 0);
 
 INSERT INTO messages (sender_id, receiver_id, content, type, is_read, created_at)
 VALUES

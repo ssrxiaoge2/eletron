@@ -34,11 +34,26 @@
 | user_id | BIGINT UNSIGNED | 用户 ID，外键到 `users.id` |
 | friend_id | BIGINT UNSIGNED | 好友用户 ID，外键到 `users.id` |
 | status | TINYINT | 状态：0 待确认，1 已同意，2 已拒绝 |
+| group_id | BIGINT UNSIGNED | 好友所在分组 ID，`NULL` 表示未分组，默认归入“我的好友”展示 |
 | created_at | DATETIME | 创建时间 |
 | updated_at | DATETIME | 更新时间 |
 | is_deleted | TINYINT(1) | 软删除标记 |
 
-索引：`idx_friendships_user_id`、`idx_friendships_friend_id`、`uk_friendships_pair`。
+索引：`idx_friendships_user_id`、`idx_friendships_friend_id`、`idx_friendships_group_id`、`uk_friendships_pair`。
+
+## friend_groups
+
+好友分组表。每个用户注册后自动创建默认分组“我的好友”。
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | BIGINT UNSIGNED | 分组主键，自增 |
+| user_id | BIGINT UNSIGNED | 分组归属用户 ID，外键到 `users.id` |
+| name | VARCHAR(32) | 分组名称 |
+| sort_order | INT | 排序权重，越小越靠前 |
+| created_at | DATETIME | 创建时间 |
+| updated_at | DATETIME | 更新时间 |
+
+索引：`idx_user`、`uk_friend_groups_user_name`。
 
 ## messages
 

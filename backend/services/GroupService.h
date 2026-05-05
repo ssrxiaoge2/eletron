@@ -29,6 +29,7 @@ public:
     GroupResult sendMessage(const QString& bearerToken, qint64 groupId, const QJsonObject& body) const;
     GroupResult history(const QString& bearerToken, qint64 groupId, int page, int pageSize) const;
     GroupResult listMine(const QString& bearerToken) const;
+    GroupResult classified(const QString& bearerToken) const;
 
     static bool authenticate(const QString& bearerToken, qint64* userId);
     static GroupResult error(int httpStatus, int code, const QString& message);
