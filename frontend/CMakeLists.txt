@@ -34,12 +34,24 @@ qt_add_executable(qq_desktop_frontend
   src/LoginWindow.h
   widgets/AddFriendDialog.cpp
   widgets/AddFriendDialog.h
+  widgets/CreateGroupDialog.cpp
+  widgets/CreateGroupDialog.h
   widgets/EditProfileDialog.cpp
   widgets/EditProfileDialog.h
   widgets/FriendListWidget.cpp
   widgets/FriendListWidget.h
+  widgets/GroupAnnouncementWidget.cpp
+  widgets/GroupAnnouncementWidget.h
+  widgets/GroupChatWindow.cpp
+  widgets/GroupChatWindow.h
+  widgets/GroupMemberWidget.cpp
+  widgets/GroupMemberWidget.h
+  widgets/GroupMessageBubble.cpp
+  widgets/GroupMessageBubble.h
   widgets/ImageViewerDialog.cpp
   widgets/ImageViewerDialog.h
+  widgets/MuteDialog.cpp
+  widgets/MuteDialog.h
   widgets/ProfileDialog.cpp
   widgets/ProfileDialog.h
   widgets/UploadProgressWidget.cpp

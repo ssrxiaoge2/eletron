@@ -6,7 +6,9 @@
 #include "TitleBar.h"
 
 #include "../widgets/AddFriendDialog.h"
+#include "../widgets/CreateGroupDialog.h"
 #include "../widgets/FriendListWidget.h"
+#include "../widgets/GroupChatWindow.h"
 
 #include <QtCore/QFile>
 #include <QtCore/QIODevice>
@@ -48,13 +50,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   nav_bar_ = new NavBar(splitter);
   chat_list_widget_ = new ChatListWidget(splitter);
   friend_list_widget_ = new FriendListWidget(splitter);
-  chat_window_ = new ChatWindow(splitter);
+  chat_window_ = new ChatWindow(this);
+  group_chat_window_ = new GroupChatWindow(this);
   middle_stack_ = new QStackedWidget(splitter);
+  chat_stack_ = new QStackedWidget(splitter);
   request_timer_ = new QTimer(this);
   presence_timer_ = new QTimer(this);
 
   middle_stack_->addWidget(chat_list_widget_);
   middle_stack_->addWidget(friend_list_widget_);
+  chat_stack_->addWidget(chat_window_);
+  chat_stack_->addWidget(group_chat_window_);
 
   root_layout->setContentsMargins(0, 0, 0, 0);
   root_layout->setSpacing(0);
@@ -62,7 +68,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   splitter->setObjectName("mainSplitter");
   splitter->addWidget(nav_bar_);
   splitter->addWidget(middle_stack_);
-  splitter->addWidget(chat_window_);
+  splitter->addWidget(chat_stack_);
   splitter->setSizes({60, 300, 820});
   splitter->setCollapsible(0, false);
   splitter->setCollapsible(1, false);
@@ -77,12 +83,22 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
           &MainWindow::SwitchMiddlePanel);
   connect(nav_bar_, &NavBar::logoutRequested, this,
           &MainWindow::LogoutAccount);
-  connect(chat_list_widget_, &ChatListWidget::conversationSelected,
-          chat_window_, &ChatWindow::loadMessages);
+  connect(chat_list_widget_, &ChatListWidget::conversationSelected, this,
+          [this](int target_user_id, const QString &display_name,
+                 bool is_online) {
+            chat_stack_->setCurrentIndex(0);
+            chat_window_->loadMessages(target_user_id, display_name, is_online);
+          });
+  connect(chat_list_widget_, &ChatListWidget::groupConversationSelected,
+          this, &MainWindow::OpenGroupConversation);
+  connect(chat_list_widget_, &ChatListWidget::groupConversationRemoved,
+          this, &MainWindow::HandleGroupRemoved);
   connect(chat_list_widget_, &ChatListWidget::newConversationRequested, this,
           &MainWindow::OpenAddFriendDialog);
   connect(friend_list_widget_, &FriendListWidget::friendActivated, this,
           &MainWindow::OpenConversation);
+  connect(friend_list_widget_, &FriendListWidget::createGroupRequested, this,
+          &MainWindow::OpenCreateGroupDialog);
   connect(friend_list_widget_, &FriendListWidget::requestCountChanged, nav_bar_,
           &NavBar::setFriendBadge);
   connect(chat_window_, &ChatWindow::messageSent, chat_list_widget_,
@@ -93,6 +109,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
           &ChatListWidget::clearUnreadForConversation);
   connect(chat_list_widget_, &ChatListWidget::onlineStatusChanged,
           chat_window_, &ChatWindow::updateOnlineStatus);
+  connect(group_chat_window_, &GroupChatWindow::groupMessageSent,
+          chat_list_widget_, &ChatListWidget::updateGroupPreview);
+  connect(group_chat_window_, &GroupChatWindow::groupDeleted, this,
+          &MainWindow::HandleGroupRemoved);
   connect(request_timer_, &QTimer::timeout, this,
           &MainWindow::RefreshFriendRequests);
   connect(presence_timer_, &QTimer::timeout, this,
@@ -100,6 +120,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
   nav_bar_->setCurrentIndex(0);
   middle_stack_->setCurrentIndex(0);
+  chat_stack_->setCurrentIndex(0);
 }
 
 void MainWindow::LoadStyleSheet() {
@@ -190,6 +211,17 @@ void MainWindow::OpenAddFriendDialog() {
   dialog.exec();
 }
 
+void MainWindow::OpenCreateGroupDialog(int default_user_id,
+                                       const QString &default_display_name) {
+  CreateGroupDialog dialog(default_user_id, default_display_name, this);
+  connect(&dialog, &CreateGroupDialog::groupCreated, this,
+          [this](int group_id, const QString &group_name, int member_count) {
+            chat_list_widget_->loadConversations();
+            OpenGroupConversation(group_id, group_name, member_count, 2);
+          });
+  dialog.exec();
+}
+
 void MainWindow::OpenConversation(int target_user_id,
                                   const QString &display_name,
                                   bool is_online) {
@@ -197,6 +229,7 @@ void MainWindow::OpenConversation(int target_user_id,
     return;
   }
 
+  chat_stack_->setCurrentIndex(0);
   middle_stack_->setCurrentIndex(0);
   nav_bar_->setCurrentIndex(0);
   if (chat_list_widget_->activateConversation(target_user_id)) {
@@ -222,6 +255,23 @@ void MainWindow::OpenConversation(int target_user_id,
             this, QString(),
             QStringLiteral("\u6253\u5f00\u4f1a\u8bdd\u5931\u8d25"));
       });
+}
+
+void MainWindow::OpenGroupConversation(int group_id, const QString &group_name,
+                                       int member_count, int my_role) {
+  if (group_id <= 0) {
+    return;
+  }
+  chat_stack_->setCurrentIndex(1);
+  middle_stack_->setCurrentIndex(0);
+  nav_bar_->setCurrentIndex(0);
+  group_chat_window_->openGroup(group_id, group_name, member_count, my_role);
+}
+
+void MainWindow::HandleGroupRemoved(int group_id) {
+  Q_UNUSED(group_id);
+  chat_list_widget_->loadConversations();
+  chat_stack_->setCurrentIndex(0);
 }
 
 void MainWindow::RefreshFriendRequests() {

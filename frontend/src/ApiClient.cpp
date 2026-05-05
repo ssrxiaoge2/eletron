@@ -146,6 +146,16 @@ void ApiClient::put(const QString &path, const QJsonObject &body,
   });
 }
 
+void ApiClient::deleteResource(
+    const QString &path, const QObject *receiver,
+    std::function<void(const QJsonObject &)> on_success,
+    std::function<void()> on_failure) {
+  QNetworkReply *reply = network_manager_.deleteResource(CreateRequest(path));
+  connect(reply, &QNetworkReply::finished, this, [=]() {
+    HandleReply(reply, receiver, on_success, on_failure);
+  });
+}
+
 QNetworkReply *ApiClient::uploadFile(
     const QString &file_path, int type, int receiver_id,
     const QObject *receiver, std::function<void(const QJsonObject &)> on_success,

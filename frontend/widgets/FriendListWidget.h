@@ -18,9 +18,11 @@ class FriendListWidget : public QWidget {
  signals:
   void friendActivated(int target_user_id, const QString &display_name,
                        bool is_online);
+  void createGroupRequested(int default_user_id, const QString &display_name);
   void requestCountChanged(int count);
 
  private:
+  void ShowContextMenu(const QPoint &pos);
   void AddFriend(int user_id, const QString &username, const QString &nickname,
                  const QString &signature, bool is_online);
   void RenderRequests(const QJsonArray &requests);

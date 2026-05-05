@@ -8,6 +8,7 @@
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QListWidget>
+#include <QtWidgets/QMenu>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QVBoxLayout>
 
@@ -84,6 +85,7 @@ FriendListWidget::FriendListWidget(QWidget *parent) : QWidget(parent) {
   friend_list_->setObjectName("friendList");
   friend_list_->setFrameShape(QFrame::NoFrame);
   friend_list_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  friend_list_->setContextMenuPolicy(Qt::CustomContextMenu);
 
   root_layout->setContentsMargins(0, 0, 0, 0);
   root_layout->setSpacing(0);
@@ -103,6 +105,32 @@ FriendListWidget::FriendListWidget(QWidget *parent) : QWidget(parent) {
                                  item->data(Qt::DisplayRole).toString(),
                                  item->data(kFriendOnlineRole).toBool());
           });
+  connect(friend_list_, &QListWidget::customContextMenuRequested, this,
+          &FriendListWidget::ShowContextMenu);
+}
+
+void FriendListWidget::ShowContextMenu(const QPoint &pos) {
+  QListWidgetItem *item = friend_list_->itemAt(pos);
+  if (item == nullptr) {
+    return;
+  }
+
+  QMenu menu(this);
+  QAction *message_action =
+      menu.addAction(QStringLiteral("\u53d1\u9001\u6d88\u606f"));
+  QAction *create_group_action =
+      menu.addAction(QStringLiteral("\u521b\u5efa\u7fa4\u804a"));
+  QAction *selected = menu.exec(friend_list_->viewport()->mapToGlobal(pos));
+  if (selected == message_action) {
+    emit friendActivated(item->data(kFriendUserIdRole).toInt(),
+                         item->data(Qt::DisplayRole).toString(),
+                         item->data(kFriendOnlineRole).toBool());
+    return;
+  }
+  if (selected == create_group_action) {
+    emit createGroupRequested(item->data(kFriendUserIdRole).toInt(),
+                              item->data(Qt::DisplayRole).toString());
+  }
 }
 
 void FriendListWidget::loadFriends() {

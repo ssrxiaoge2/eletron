@@ -7,10 +7,14 @@
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
+#include <QtCore/QVector>
+#include <algorithm>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListWidget>
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QMessageBox>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
 
@@ -22,6 +26,12 @@ constexpr int kLastMessageRole = Qt::UserRole + 3;
 constexpr int kLastMessageTimeRole = Qt::UserRole + 4;
 constexpr int kUnreadCountRole = Qt::UserRole + 5;
 constexpr int kLastMessageTypeRole = Qt::UserRole + 6;
+constexpr int kConversationKindRole = Qt::UserRole + 7;
+constexpr int kGroupIdRole = Qt::UserRole + 8;
+constexpr int kMemberCountRole = Qt::UserRole + 9;
+constexpr int kMyRoleRole = Qt::UserRole + 10;
+constexpr int kPrivateConversation = 0;
+constexpr int kGroupConversation = 1;
 
 bool IsOnline(const QJsonObject &item) {
   return item.value("isOnline").toBool(false);
@@ -73,6 +83,7 @@ class SessionItemWidget : public QWidget {
  public:
   SessionItemWidget(const QString &name, const QString &time,
                     const QString &preview, int unread_count, bool is_online,
+                    bool is_group, int member_count = 0,
                     QWidget *parent = nullptr)
       : QWidget(parent) {
     auto *root_layout = new QHBoxLayout(this);
@@ -82,7 +93,9 @@ class SessionItemWidget : public QWidget {
     auto *online_dot = new QLabel(avatar_container);
     auto *text_layout = new QVBoxLayout();
     auto *top_layout = new QHBoxLayout();
-    auto *name_label = new QLabel(name, this);
+    auto *name_label = new QLabel(
+        is_group ? QStringLiteral("%1 (%2)").arg(name).arg(member_count) : name,
+        this);
     auto *time_label = new QLabel(time, this);
     auto *bottom_layout = new QHBoxLayout();
     auto *preview_label = new QLabel(preview, this);
@@ -90,6 +103,11 @@ class SessionItemWidget : public QWidget {
 
     setObjectName("sessionItem");
     avatar->setObjectName("sessionAvatar");
+    if (is_group) {
+      avatar->setStyleSheet(QStringLiteral(
+          "background-color: #7c5cbf; color: #ffffff; border-radius: 21px; "
+          "font-weight: 700;"));
+    }
     online_dot->setObjectName(is_online ? "sessionOnlineDot"
                                         : "sessionOfflineDot");
     online_dot->setStyleSheet(OnlineDotStyle(is_online));
@@ -165,6 +183,7 @@ ChatListWidget::ChatListWidget(QWidget *parent) : QWidget(parent) {
   session_list_->setObjectName("sessionList");
   session_list_->setFrameShape(QFrame::NoFrame);
   session_list_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  session_list_->setContextMenuPolicy(Qt::CustomContextMenu);
 
   root_layout->setContentsMargins(0, 0, 0, 0);
   root_layout->setSpacing(0);
@@ -174,6 +193,14 @@ ChatListWidget::ChatListWidget(QWidget *parent) : QWidget(parent) {
   connect(session_list_, &QListWidget::itemClicked, this,
           [this](QListWidgetItem *item) {
             ClearUnreadBadge(item);
+            if (item->data(kConversationKindRole).toInt() == kGroupConversation) {
+              emit groupConversationSelected(
+                  item->data(kGroupIdRole).toInt(),
+                  item->data(Qt::DisplayRole).toString(),
+                  item->data(kMemberCountRole).toInt(),
+                  item->data(kMyRoleRole).toInt());
+              return;
+            }
             emit conversationSelected(
                 item->data(kTargetUserIdRole).toInt(),
                 item->data(Qt::DisplayRole).toString(),
@@ -181,6 +208,8 @@ ChatListWidget::ChatListWidget(QWidget *parent) : QWidget(parent) {
           });
   connect(new_chat_button, &QToolButton::clicked, this,
           &ChatListWidget::newConversationRequested);
+  connect(session_list_, &QListWidget::customContextMenuRequested, this,
+          &ChatListWidget::ShowContextMenu);
 }
 
 void ChatListWidget::loadConversations() {
@@ -243,6 +272,7 @@ void ChatListWidget::FetchConversations() {
       [this](const QJsonObject &response) {
         const QJsonArray conversations =
             response.value("data").toArray();
+        QVector<QJsonObject> private_conversations;
         QSet<int> rendered_user_ids;
         for (const QJsonValue &value : conversations) {
           const QJsonObject item = value.toObject();
@@ -251,19 +281,67 @@ void ChatListWidget::FetchConversations() {
             continue;
           }
           rendered_user_ids.insert(target_user_id);
-          const int unread_count =
-              read_conversation_ids_.contains(target_user_id)
-                  ? 0
-                  : item.value("unreadCount").toInt();
-          AddConversation(target_user_id, DisplayNameForConversation(item),
-                          item.value("lastMessage").toString(),
-                          item.value("lastMessageType").toInt(
-                              item.value("type").toInt(-1)),
-                          item.value("lastMessageTime").toString(),
-                          unread_count,
-                          OnlineStateForConversation(target_user_id, item));
+          QJsonObject conversation = item;
+          conversation.insert("conversationKind", kPrivateConversation);
+          conversation.insert("displayName", DisplayNameForConversation(item));
+          private_conversations.append(conversation);
         }
+        FetchGroups(private_conversations);
+      },
+      [this]() { FetchGroups({}); });
+}
+
+void ChatListWidget::FetchGroups(QVector<QJsonObject> private_conversations) {
+  ApiClient::instance()->get(
+      "/api/v1/groups", this,
+      [this, private_conversations](const QJsonObject &response) mutable {
+        const QJsonArray groups = response.value("data").toArray();
+        for (const QJsonValue &value : groups) {
+          QJsonObject group = value.toObject();
+          group.insert("conversationKind", kGroupConversation);
+          group.insert("displayName", group.value("name").toString());
+          private_conversations.append(group);
+        }
+        RenderConversations(private_conversations);
+      },
+      [this, private_conversations]() {
+        RenderConversations(private_conversations);
       });
+}
+
+void ChatListWidget::RenderConversations(const QVector<QJsonObject> &items) {
+  QVector<QJsonObject> sorted_items = items;
+  std::sort(sorted_items.begin(), sorted_items.end(),
+            [](const QJsonObject &left, const QJsonObject &right) {
+              return left.value("lastMessageTime").toString() >
+                     right.value("lastMessageTime").toString();
+            });
+
+  for (const QJsonObject &item : sorted_items) {
+    if (item.value("conversationKind").toInt() == kGroupConversation) {
+      AddGroupConversation(item.value("groupId").toInt(),
+                           item.value("displayName").toString(),
+                           item.value("memberCount").toInt(),
+                           item.value("myRole").toInt(),
+                           item.value("lastMessage").toString(),
+                           item.value("lastMessageType").toInt(
+                               item.value("type").toInt(-1)),
+                           item.value("lastMessageTime").toString(),
+                           item.value("unreadCount").toInt());
+      continue;
+    }
+
+    const int target_user_id = item.value("targetUserId").toInt();
+    const int unread_count = read_conversation_ids_.contains(target_user_id)
+                                 ? 0
+                                 : item.value("unreadCount").toInt();
+    AddConversation(target_user_id, item.value("displayName").toString(),
+                    item.value("lastMessage").toString(),
+                    item.value("lastMessageType").toInt(
+                        item.value("type").toInt(-1)),
+                    item.value("lastMessageTime").toString(), unread_count,
+                    OnlineStateForConversation(target_user_id, item));
+  }
 }
 
 bool ChatListWidget::activateConversation(int target_user_id) {
@@ -315,12 +393,53 @@ void ChatListWidget::updateConversationPreview(int target_user_id,
     moved_item->setData(kUnreadCountRole, 0);
     auto *widget = new SessionItemWidget(display_name, FormatTime(created_at),
                                          FormatPreview(content, -1), 0,
-                                         is_online, session_list_);
+                                         is_online, false, 0, session_list_);
     session_list_->insertItem(0, moved_item);
     session_list_->setItemWidget(moved_item, widget);
     session_list_->setCurrentItem(moved_item);
     return;
   }
+}
+
+void ChatListWidget::updateGroupPreview(int group_id, const QString &content,
+                                        const QString &created_at) {
+  for (int i = 0; i < session_list_->count(); ++i) {
+    QListWidgetItem *item = session_list_->item(i);
+    if (item->data(kConversationKindRole).toInt() != kGroupConversation ||
+        item->data(kGroupIdRole).toInt() != group_id) {
+      continue;
+    }
+    const QString display_name = item->data(Qt::DisplayRole).toString();
+    const int member_count = item->data(kMemberCountRole).toInt();
+    const int my_role = item->data(kMyRoleRole).toInt();
+    QWidget *old_widget = session_list_->itemWidget(item);
+    session_list_->removeItemWidget(item);
+    if (old_widget != nullptr) {
+      old_widget->deleteLater();
+    }
+    QListWidgetItem *moved_item = session_list_->takeItem(i);
+    moved_item->setData(Qt::DisplayRole, display_name);
+    moved_item->setData(kGroupIdRole, group_id);
+    moved_item->setData(kMemberCountRole, member_count);
+    moved_item->setData(kMyRoleRole, my_role);
+    moved_item->setData(kConversationKindRole, kGroupConversation);
+    moved_item->setData(kLastMessageRole, content);
+    moved_item->setData(kLastMessageTimeRole, created_at);
+    moved_item->setData(kLastMessageTypeRole, 0);
+    moved_item->setData(kUnreadCountRole, 0);
+    auto *widget = new SessionItemWidget(display_name, FormatTime(created_at),
+                                         FormatPreview(content, 0), 0, false,
+                                         true, member_count, session_list_);
+    session_list_->insertItem(0, moved_item);
+    session_list_->setItemWidget(moved_item, widget);
+    session_list_->setCurrentItem(moved_item);
+    return;
+  }
+  refreshGroups();
+}
+
+void ChatListWidget::refreshGroups() {
+  FetchGroups({});
 }
 
 void ChatListWidget::AddConversation(int target_user_id,
@@ -344,9 +463,10 @@ void ChatListWidget::AddConversation(int target_user_id,
     auto *widget = new SessionItemWidget(
         target_username, FormatTime(last_message_time),
         FormatPreview(last_message, last_message_type), unread_count,
-        is_online, session_list_);
+        is_online, false, 0, session_list_);
     existing_item->setData(Qt::DisplayRole, target_username);
     existing_item->setData(kOnlineRole, is_online);
+    existing_item->setData(kConversationKindRole, kPrivateConversation);
     existing_item->setData(kLastMessageRole, last_message);
     existing_item->setData(kLastMessageTypeRole, last_message_type);
     existing_item->setData(kLastMessageTimeRole, last_message_time);
@@ -362,10 +482,69 @@ void ChatListWidget::AddConversation(int target_user_id,
   auto *widget = new SessionItemWidget(
       target_username, FormatTime(last_message_time),
       FormatPreview(last_message, last_message_type), unread_count, is_online,
-      session_list_);
+      false, 0, session_list_);
   item->setData(kTargetUserIdRole, target_user_id);
   item->setData(Qt::DisplayRole, target_username);
   item->setData(kOnlineRole, is_online);
+  item->setData(kConversationKindRole, kPrivateConversation);
+  item->setData(kLastMessageRole, last_message);
+  item->setData(kLastMessageTypeRole, last_message_type);
+  item->setData(kLastMessageTimeRole, last_message_time);
+  item->setData(kUnreadCountRole, unread_count);
+  item->setSizeHint({300, 70});
+  session_list_->addItem(item);
+  session_list_->setItemWidget(item, widget);
+}
+
+void ChatListWidget::AddGroupConversation(int group_id,
+                                          const QString &group_name,
+                                          int member_count, int my_role,
+                                          const QString &last_message,
+                                          int last_message_type,
+                                          const QString &last_message_time,
+                                          int unread_count) {
+  if (group_id <= 0) {
+    return;
+  }
+  for (int i = 0; i < session_list_->count(); ++i) {
+    QListWidgetItem *existing_item = session_list_->item(i);
+    if (existing_item->data(kConversationKindRole).toInt() !=
+            kGroupConversation ||
+        existing_item->data(kGroupIdRole).toInt() != group_id) {
+      continue;
+    }
+    QWidget *old_widget = session_list_->itemWidget(existing_item);
+    session_list_->removeItemWidget(existing_item);
+    if (old_widget != nullptr) {
+      old_widget->deleteLater();
+    }
+    auto *widget = new SessionItemWidget(
+        group_name, FormatTime(last_message_time),
+        FormatPreview(last_message, last_message_type), unread_count, false,
+        true, member_count, session_list_);
+    existing_item->setData(Qt::DisplayRole, group_name);
+    existing_item->setData(kGroupIdRole, group_id);
+    existing_item->setData(kMemberCountRole, member_count);
+    existing_item->setData(kMyRoleRole, my_role);
+    existing_item->setData(kConversationKindRole, kGroupConversation);
+    existing_item->setData(kLastMessageRole, last_message);
+    existing_item->setData(kLastMessageTypeRole, last_message_type);
+    existing_item->setData(kLastMessageTimeRole, last_message_time);
+    existing_item->setData(kUnreadCountRole, unread_count);
+    session_list_->setItemWidget(existing_item, widget);
+    return;
+  }
+
+  auto *item = new QListWidgetItem();
+  auto *widget = new SessionItemWidget(
+      group_name, FormatTime(last_message_time),
+      FormatPreview(last_message, last_message_type), unread_count, false, true,
+      member_count, session_list_);
+  item->setData(kGroupIdRole, group_id);
+  item->setData(Qt::DisplayRole, group_name);
+  item->setData(kMemberCountRole, member_count);
+  item->setData(kMyRoleRole, my_role);
+  item->setData(kConversationKindRole, kGroupConversation);
   item->setData(kLastMessageRole, last_message);
   item->setData(kLastMessageTypeRole, last_message_type);
   item->setData(kLastMessageTimeRole, last_message_time);
@@ -391,7 +570,101 @@ QString ChatListWidget::DisplayNameForConversation(
   return item.value("targetUsername").toString();
 }
 
+void ChatListWidget::ShowContextMenu(const QPoint &pos) {
+  QListWidgetItem *item = session_list_->itemAt(pos);
+  if (item == nullptr ||
+      item->data(kConversationKindRole).toInt() != kGroupConversation) {
+    return;
+  }
+
+  const int group_id = item->data(kGroupIdRole).toInt();
+  const QString group_name = item->data(Qt::DisplayRole).toString();
+  const int member_count = item->data(kMemberCountRole).toInt();
+  const int my_role = item->data(kMyRoleRole).toInt();
+  QMenu menu(this);
+  QAction *open_action =
+      menu.addAction(QStringLiteral("\u6253\u5f00\u7fa4\u804a"));
+  QAction *danger_action = menu.addAction(
+      my_role == 2 ? QStringLiteral("\u89e3\u6563\u8be5\u7fa4")
+                   : QStringLiteral("\u9000\u51fa\u8be5\u7fa4"));
+  QAction *selected =
+      menu.exec(session_list_->viewport()->mapToGlobal(pos));
+  if (selected == open_action) {
+    emit groupConversationSelected(group_id, group_name, member_count, my_role);
+    return;
+  }
+  if (selected != danger_action) {
+    return;
+  }
+
+  if (my_role == 2) {
+    const QMessageBox::StandardButton choice = QMessageBox::question(
+        this, QStringLiteral("\u89e3\u6563\u7fa4\u804a"),
+        QStringLiteral("\u89e3\u6563\u540e\u6240\u6709\u6210\u5458\u5c06\u88ab\u79fb\u51fa\u7fa4\u804a\uff0c\u4e14\u65e0\u6cd5\u6062\u590d\uff0c\u786e\u8ba4\u89e3\u6563\uff1f"));
+    if (choice != QMessageBox::Yes) {
+      return;
+    }
+    ApiClient::instance()->deleteResource(
+        QStringLiteral("/api/v1/groups/%1").arg(group_id), this,
+        [this, group_id](const QJsonObject &) {
+          emit groupConversationRemoved(group_id);
+          loadConversations();
+        },
+        [this]() {
+          QMessageBox::warning(
+              this, QString(),
+              QStringLiteral("\u89e3\u6563\u7fa4\u804a\u5931\u8d25"));
+        });
+    return;
+  }
+
+  const QMessageBox::StandardButton choice = QMessageBox::question(
+      this, QStringLiteral("\u9000\u51fa\u7fa4\u804a"),
+      QStringLiteral("\u786e\u5b9a\u9000\u51fa\u8be5\u7fa4\u804a\uff1f"));
+  if (choice != QMessageBox::Yes) {
+    return;
+  }
+  ApiClient::instance()->deleteResource(
+      QStringLiteral("/api/v1/groups/%1/members/self").arg(group_id), this,
+      [this, group_id](const QJsonObject &) {
+        emit groupConversationRemoved(group_id);
+        loadConversations();
+      },
+      [this]() {
+        QMessageBox::warning(this, QString(),
+                             QStringLiteral("\u9000\u51fa\u7fa4\u804a\u5931\u8d25"));
+      });
+}
+
 void ChatListWidget::ClearUnreadBadge(QListWidgetItem *item) {
+  if (item->data(kConversationKindRole).toInt() == kGroupConversation) {
+    const QString group_name = item->data(Qt::DisplayRole).toString();
+    const int group_id = item->data(kGroupIdRole).toInt();
+    const int member_count = item->data(kMemberCountRole).toInt();
+    const int my_role = item->data(kMyRoleRole).toInt();
+    const QString last_message = item->data(kLastMessageRole).toString();
+    const int last_message_type = item->data(kLastMessageTypeRole).toInt();
+    const QString last_message_time =
+        item->data(kLastMessageTimeRole).toString();
+    QWidget *old_widget = session_list_->itemWidget(item);
+    session_list_->removeItemWidget(item);
+    if (old_widget != nullptr) {
+      old_widget->deleteLater();
+    }
+    auto *widget = new SessionItemWidget(
+        group_name, FormatTime(last_message_time),
+        FormatPreview(last_message, last_message_type), 0, false, true,
+        member_count, session_list_);
+    item->setData(Qt::DisplayRole, group_name);
+    item->setData(kGroupIdRole, group_id);
+    item->setData(kMemberCountRole, member_count);
+    item->setData(kMyRoleRole, my_role);
+    item->setData(kConversationKindRole, kGroupConversation);
+    item->setData(kUnreadCountRole, 0);
+    session_list_->setItemWidget(item, widget);
+    return;
+  }
+
   const int target_user_id = item->data(kTargetUserIdRole).toInt();
   read_conversation_ids_.insert(target_user_id);
   MarkConversationRead(target_user_id);
@@ -408,7 +681,7 @@ void ChatListWidget::ClearUnreadBadge(QListWidgetItem *item) {
   auto *widget = new SessionItemWidget(target_username, FormatTime(last_message_time),
                                        FormatPreview(last_message,
                                                      last_message_type),
-                                       0, is_online, session_list_);
+                                       0, is_online, false, 0, session_list_);
   item->setData(kTargetUserIdRole, target_user_id);
   item->setData(Qt::DisplayRole, target_username);
   item->setData(kOnlineRole, is_online);
