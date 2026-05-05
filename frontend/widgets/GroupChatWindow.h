@@ -42,6 +42,7 @@ class GroupChatWindow : public QWidget {
   void LoadGroupInfo();
   void LoadMessages(bool full_refresh);
   void AppendMessage(const QJsonObject &message);
+  QString MessageFingerprint(const QJsonObject &message) const;
   void AddTimestamp(const QString &time_text);
   void RemoveAllMessages();
   void SendText();
@@ -62,8 +63,10 @@ class GroupChatWindow : public QWidget {
   int current_user_id_ = 0;
   int last_message_id_ = 0;
   QString group_name_;
+  QString current_nickname_;
   QString last_rendered_minute_;
   QSet<int> rendered_message_ids_;
+  QSet<QString> rendered_message_fingerprints_;
   QLabel *title_label_;
   QScrollArea *message_scroll_area_;
   QVBoxLayout *message_layout_;

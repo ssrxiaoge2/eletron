@@ -109,6 +109,7 @@ void GroupChatWindow::openGroup(int group_id, const QString &group_name,
   member_widget_->setGroup(group_id_, my_role_, current_user_id_);
   last_message_id_ = 0;
   rendered_message_ids_.clear();
+  rendered_message_fingerprints_.clear();
   last_rendered_minute_.clear();
   RemoveAllMessages();
   LoadGroupInfo();
@@ -232,8 +233,13 @@ QWidget *GroupChatWindow::CreateSidePanel() {
 void GroupChatWindow::LoadProfile() {
   ApiClient::instance()->get("/api/v1/user/profile", this,
                              [this](const QJsonObject &response) {
+                               const QJsonObject data =
+                                   response.value("data").toObject();
                                current_user_id_ =
-                                   response.value("data").toObject().value("userId").toInt();
+                                   data.value("userId").toInt();
+                               current_nickname_ =
+                                   data.value("nickname").toString(
+                                       data.value("username").toString());
                                if (group_id_ > 0) {
                                  member_widget_->setGroup(group_id_, my_role_,
                                                           current_user_id_);
@@ -265,11 +271,24 @@ void GroupChatWindow::LoadMessages(bool full_refresh) {
         if (full_refresh) {
           last_message_id_ = 0;
           rendered_message_ids_.clear();
+          rendered_message_fingerprints_.clear();
           last_rendered_minute_.clear();
           RemoveAllMessages();
         }
         const QJsonArray messages =
             response.value("data").toObject().value("list").toArray();
+        qDebug() << "=== \u52a0\u8f7d\u7fa4\u5386\u53f2\u6d88\u606f ===";
+        qDebug() << "\u6d88\u606f\u603b\u6570:" << messages.size();
+        for (int i = 0; i < messages.size(); ++i) {
+          const QJsonObject message = messages.at(i).toObject();
+          qDebug() << QStringLiteral("\u6d88\u606f[%1]:").arg(i)
+                   << "senderId:" << message.value("senderId").toInt()
+                   << "isSelf:" << message.value("isSelf").toBool()
+                   << "content:" << message.value("content").toString()
+                   << "senderNickname:"
+                   << message.value("senderNickname").toString()
+                   << "senderRole:" << message.value("senderRole").toInt();
+        }
         for (const QJsonValue &value : messages) {
           AppendMessage(value.toObject());
         }
@@ -280,7 +299,12 @@ void GroupChatWindow::LoadMessages(bool full_refresh) {
 
 void GroupChatWindow::AppendMessage(const QJsonObject &message) {
   const int message_id = message.value("messageId").toInt();
+  const QString fingerprint = MessageFingerprint(message);
   if (message_id > 0 && rendered_message_ids_.contains(message_id)) {
+    return;
+  }
+  if (!fingerprint.isEmpty() &&
+      rendered_message_fingerprints_.contains(fingerprint)) {
     return;
   }
   if (message_id > 0 && message_id < last_message_id_) {
@@ -294,11 +318,27 @@ void GroupChatWindow::AppendMessage(const QJsonObject &message) {
     last_rendered_minute_ = minute;
   }
 
+  QString nickname = message.value("senderNickname").toString();
+  if (nickname.isEmpty()) {
+    nickname = message.value("isSelf").toBool()
+                   ? current_nickname_
+                   : QStringLiteral("\u7528\u6237%1")
+                         .arg(message.value("senderId").toInt());
+  }
+  const QString content = message.value("content").toString();
+  const int type = ResolveMessageType(message);
+  const bool is_self = message.value("isSelf").toBool();
+  const int sender_role = message.value("senderRole").toInt();
+  qDebug() << "=== \u8ffd\u52a0\u7fa4\u6d88\u606f\u6c14\u6ce1 ===";
+  qDebug() << "content:" << content;
+  qDebug() << "isSelf:" << is_self;
+  qDebug() << "nickname:" << nickname;
+  qDebug() << "role:" << sender_role;
+
   auto *bubble = new GroupMessageBubble(
-      message.value("content").toString(),
-      static_cast<MessageBubble::BubbleType>(ResolveMessageType(message)),
-      message.value("isSelf").toBool(),
-      message.value("senderNickname").toString(), message.value("senderRole").toInt(),
+      content,
+      static_cast<MessageBubble::BubbleType>(type), is_self, nickname,
+      sender_role,
       created_at, this);
   bubble->setMaxBubbleWidth(MaxBubbleWidth());
   connect(bubble, &GroupMessageBubble::imageOpenRequested, this,
@@ -311,6 +351,18 @@ void GroupChatWindow::AppendMessage(const QJsonObject &message) {
     rendered_message_ids_.insert(message_id);
     last_message_id_ = qMax(last_message_id_, message_id);
   }
+  if (!fingerprint.isEmpty()) {
+    rendered_message_fingerprints_.insert(fingerprint);
+  }
+}
+
+QString GroupChatWindow::MessageFingerprint(const QJsonObject &message) const {
+  return QStringLiteral("%1:%2:%3:%4")
+      .arg(message.value("createdAt").toString(),
+           message.value("isSelf").toBool() ? QStringLiteral("1")
+                                            : QStringLiteral("0"),
+           QString::number(message.value("type").toInt(0)),
+           message.value("content").toString());
 }
 
 void GroupChatWindow::AddTimestamp(const QString &time_text) {
@@ -341,26 +393,33 @@ void GroupChatWindow::RemoveAllMessages() {
 }
 
 void GroupChatWindow::SendText() {
-  const QString text = message_input_->toPlainText().trimmed();
-  if (text.isEmpty() || group_id_ <= 0) {
+  const QString saved_content = message_input_->toPlainText().trimmed();
+  qDebug() << "=== \u53d1\u9001\u7fa4\u6d88\u606f ===";
+  qDebug() << "content:" << saved_content;
+  qDebug() << "groupId:" << group_id_;
+  qDebug() << "currentUserId:" << current_user_id_;
+  qDebug() << "currentNickname:" << current_nickname_;
+  qDebug() << "currentRole:" << my_role_;
+  if (saved_content.isEmpty() || group_id_ <= 0) {
     return;
   }
   send_button_->setEnabled(false);
   QJsonObject body;
-  body.insert("content", text);
+  body.insert("content", saved_content);
   body.insert("type", 0);
   ApiClient::instance()->post(
       QStringLiteral("/api/v1/groups/%1/messages").arg(group_id_), body, this,
-      [this, text](const QJsonObject &response) {
-        qDebug() << "\u53d1\u9001\u7fa4\u6d88\u606f\u54cd\u5e94\uff1a"
+      [this, saved_content](const QJsonObject &response) {
+        qDebug() << "=== \u53d1\u9001\u7fa4\u6d88\u606f\u54cd\u5e94 ===";
+        qDebug() << "\u54cd\u5e94\u4f53:"
                  << QJsonDocument(response).toJson(QJsonDocument::Compact);
+        qDebug() << "code:" << response.value("code").toInt();
         send_button_->setEnabled(true);
-        message_input_->clear();
         const QJsonObject data = response.value("data").toObject();
         const QString created_at = data.value("createdAt").toString(
             QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"));
         qDebug() << "\u5f00\u59cb\u8ffd\u52a0\u7fa4\u6d88\u606f\u6c14\u6ce1\uff0ccontent\uff1a"
-                 << text;
+                 << saved_content;
         QJsonObject message;
         message.insert("messageId",
                        data.value("messageId").toInt(
@@ -368,18 +427,19 @@ void GroupChatWindow::SendText() {
                                QDateTime::currentMSecsSinceEpoch() %
                                1000000000)));
         message.insert("senderId", current_user_id_);
-        message.insert("senderNickname", QString());
+        message.insert("senderNickname", current_nickname_);
         message.insert("senderRole", my_role_);
-        message.insert("content", text);
+        message.insert("content", saved_content);
         message.insert("type", 0);
         message.insert("createdAt", created_at);
         message.insert("isSelf", true);
         AppendMessage(message);
+        message_input_->clear();
         message_scroll_area_->widget()->adjustSize();
         message_scroll_area_->widget()->updateGeometry();
         ScrollToBottom();
         QApplication::processEvents();
-        emit groupMessageSent(group_id_, text, created_at);
+        emit groupMessageSent(group_id_, saved_content, created_at);
         LoadMessages(false);
       },
       [this]() {

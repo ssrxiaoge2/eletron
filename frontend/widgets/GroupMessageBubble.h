@@ -21,5 +21,5 @@ class GroupMessageBubble : public QWidget {
                              qint64 file_size);
 
  private:
-  MessageBubble *bubble_;
+  QWidget *bubble_ = nullptr;
 };
